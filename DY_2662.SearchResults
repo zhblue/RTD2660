@@ -1,0 +1,9 @@
+---- StructSystemDataType Matches (8 in 4 files) ----
+Eeprom.c (core\code\ext_device):    CEepromWrite(_SYSTEM_DATA_ADDRESS, sizeof(StructSystemDataType), &stSystemData.MonitorFlag);
+Eeprom.c (core\code\ext_device):    CEepromRead(_SYSTEM_DATA_ADDRESS, sizeof(StructSystemDataType), &stSystemData.MonitorFlag);
+Eeprom.c (core\code\ext_device):    CEepromWrite(_SYSTEM_DATA_ADDRESS, sizeof(StructSystemDataType), &tEEPROM_SYSTEM_DATA.MonitorFlag);
+EepromDefault.h (core\header):code StructSystemDataType tEEPROM_SYSTEM_DATA =
+EepromDefault.h (core\header):extern code StructSystemDataType tEEPROM_SYSTEM_DATA;
+Struct.c (core\code):StructSystemDataType            	xdata   stSystemData;
+Struct.h (core\header):} StructSystemDataType;
+Struct.h (core\header):extern StructSystemDataType         xdata   stSystemData;
