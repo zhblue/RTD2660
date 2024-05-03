@@ -1,0 +1,464 @@
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE YPBPR
+OBJECT MODULE PLACED IN .\Output\YPbPr.obj
+COMPILER INVOKED BY: C:\Program Files (x86)\Keil\C51\BIN\C51.EXE Core\code\rtd2662\YPbPr.c LARGE OPTIMIZE(9,SPEED) BROWS
+                    -E DEBUG OBJECTEXTEND PRINT(.\Output\YPbPr.lst) OBJECT(.\Output\YPbPr.obj)
+
+line level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : YPbPr.c No.0001//É«²î
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __YPBPR__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          #if(_YPBPR_SUPPORT == _ON)
+  12          
+  13          /**
+  14           * CYPbPrSearchMode
+  15           * Search mode for YPbPr
+  16           * @param <none>
+  17           * @return {_TRUE if there is a preset mode ;_FALSE if not}
+  18           *
+  19          */
+  20          //--------------------------------------------------
+  21          // Description  : Search mode for YPbPr
+  22          // Input Value  : None
+  23          // Output Value : YPbPr Mode number
+  24          //--------------------------------------------------
+  25          BYTE CYPbPrSearchMode(void)
+  26          {
+  27   1          BYTE cnt, modetemp = _MODE_NOSUPPORT;
+  28   1      
+  29   1          for(cnt=0;cnt<_MAX_YPBPR_MODE;cnt++)
+  30   1          {
+  31   2              if(CYPbPrCompareMode(cnt) == _TRUE)
+  32   2              {
+  33   3                  modetemp = cnt;
+  34   3                              //DebugPrintf("\n YPbPrMode = %x\n",modetemp);                  
+  35   3                  break;
+  36   3              }
+  37   2          }
+  38   1      
+  39   1          if (modetemp == 2) // 576P
+  40   1          {
+  41   2              if (stModeInfo.IHSyncPulseCount < 40)  // 1080I 50Hz  295M
+  42   2                  modetemp = 6;
+  43   2          }
+  44   1      
+  45   1          return modetemp;
+  46   1      }
+  47          
+  48          /**
+  49           * CModeSearchDisplayMode
+  50           * Search display mode according to the input source
+  51           * called only by CModeDetectCommon
+  52           * @param <none>
+  53           * @return {_TRUE if there is a stable mode;_FALSE if not}
+  54           *
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 2   
+
+  55          */
+  56          //--------------------------------------------------
+  57          // Description  : Compare mode in YPbPr mode table
+  58          // Input Value  : Mode number
+  59          // Output Value : Return _TRUE if get an available mode
+  60          //--------------------------------------------------
+  61          bit CYPbPrCompareMode(BYTE ucModeCnt)
+  62          {                   
+  63   1              if(abs(stModeInfo.IVFreq - tYPBPR_MODE_TABLE[ucModeCnt].IVFreq) > tYPBPR_MODE_TABLE[ucModeCnt].IVFreqTole
+             -rance)
+  64   1              {
+  65   2              return _FALSE;
+  66   2              }
+  67   1      
+  68   1              if(abs(stModeInfo.IHFreq - tYPBPR_MODE_TABLE[ucModeCnt].IHFreq) > tYPBPR_MODE_TABLE[ucModeCnt].IHFreqTole
+             -rance)
+  69   1              {
+  70   2              return _FALSE;
+  71   2              }     
+  72   1      
+  73   1              return _TRUE;
+  74   1      }
+  75          
+  76          /**
+  77           * CYPbPrGetModeInfo
+  78           * Get mode information for YPbPr
+  79           * called only by CYPbPrSetupMode
+  80           * @param <none>
+  81           * @return {none}
+  82           *
+  83          */
+  84          //--------------------------------------------------
+  85          // Description  : Get mode information for YPbPr
+  86          // Input Value  : None
+  87          // Output Value : None
+  88          //--------------------------------------------------
+  89          void CYPbPrGetModeInfo(void)
+  90          {
+  91   1          stModeInfo.IHTotal = tYPBPR_MODE_TABLE[stModeInfo.ModeCurr].IHTotal;
+  92   1          stModeInfo.IHStartPos = tYPBPR_MODE_TABLE[stModeInfo.ModeCurr].IHStartPos;
+  93   1          stModeInfo.IHWidth = tYPBPR_MODE_TABLE[stModeInfo.ModeCurr].IHWidth;
+  94   1      
+  95   1          stModeInfo.IVStartPos = tYPBPR_MODE_TABLE[stModeInfo.ModeCurr].IVStartPos;
+  96   1          stModeInfo.IVHeight = tYPBPR_MODE_TABLE[stModeInfo.ModeCurr].IVHeight;
+  97   1      
+  98   1          stModeUserData.Clock = stModeInfo.IHTotal;
+  99   1          stModeUserData.Phase = 0;
+ 100   1          stModeUserData.HPosition = stModeInfo.IHStartPos;
+ 101   1          stModeUserData.VPosition = stModeInfo.IVStartPos;
+ 102   1      
+ 103   1          // Test
+ 104   1          stModeUserCenterData.CenterClock    = stModeInfo.IHTotal;
+ 105   1          stModeUserCenterData.CenterHPos     = stModeInfo.IHStartPos;
+ 106   1          stModeUserCenterData.CenterVPos     = stModeInfo.IVStartPos;
+ 107   1      }
+ 108          
+ 109          /**
+ 110           * CYPbPrStartUp
+ 111           * settings for YPbPr startup
+ 112           * @param <none>
+ 113           * @return {none}
+ 114           *
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 3   
+
+ 115          */
+ 116          //--------------------------------------------------
+ 117          // Description  : Start up settings for YPbPr
+ 118          // Input Value  : None
+ 119          // Output Value : None
+ 120          //--------------------------------------------------
+ 121          void CYPbPrStartUp(void)
+ 122          {
+ 123   1          CScalerCodeW(tYPBPR_TABLE_SET_SCALER);
+ 124   1      
+ 125   1      #if(0)//_YPBPR_HW_AUTO_SOY == _ENABLE)
+                      CScalerPageSelect(_PAGEB);
+                  switch(stModeInfo.ModeCurr)
+                  {
+                  case 0:  // 576I 50Hz
+                  case 2:  // 576P 50Hz
+                  case 4:  // 720P 60Hz
+                  case 5:  // 1080I 50Hz 274M
+                  case 6:  // 1080I 50Hz 295M
+                  case 7:  // 1080I 60Hz
+                  case 8:  // 720P 50Hz 
+                  case 9:  // 1080P 50Hz
+                  case 10: // 1080P 60Hz
+                      break;   
+              
+                  case 1:  // 480I 60Hz //for panasonic 480i
+                              CScalerSetByte(0xc0, 0x1d);
+                              CScalerSetByte(0xc2, 0x85);
+                      break;
+              
+                  case 3:  // 480P 60Hz //for panasonic 480p
+                              CScalerSetByte(0xc0, 0x1d);
+                      break;
+              
+                  }   /*
+                      if(stModeInfo.ModeCurr ==3)
+                      {               
+                              CScalerPageSelect(_PAGEB);
+                              CScalerSetByte(0xc0, 0x1d);
+                      }
+                      else if(stModeInfo.ModeCurr ==1)
+                      {               
+                              CScalerPageSelect(_PAGEB);
+                              CScalerSetByte(0xc0, 0x1d);
+                              CScalerSetByte(0xc2, 0x85);
+                      } */
+                      
+              #endif  
+ 163   1      
+ 164   1      }
+ 165          
+ 166          #if defined(CONFIG_VBI_ENABLE)
+              UINT8 code Y_CC_Init[] =
+              {
+                      4, 0xe9, 0x00, 0x00,            // Y from AI01
+                      9, 0xb0, 0x40, 0xd4, 0x00, 0x00, 0x00, 0xff, 0xff,
+                      0
+              };
+              #endif
+ 174          
+ 175             /*
+ 176          void YPbPrADCDefault(void)
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 4   
+
+ 177          {
+ 178                  BYTE i;
+ 179                  static UINT8 code YPBPR_ADC_DEFAULT[10][6] =    
+ 180                  {               
+ 181                          149,203,151,126,122,135,//576i
+ 182                          149,203,151,126,122,135,//480i
+ 183                          149,203,152,126,122,134,//576P
+ 184                          149,203,151,126,122,135,//480P
+ 185                          151,203,151,124,121,132,//720P60
+ 186                          150,194,150,123,122,131,//1080i50
+ 187                          149,199,151,124,121,131,//1080i60
+ 188                          151,203,151,124,121,132,//720P50
+ 189                          149,195,149,124,122,132,//1080P50
+ 190                          147,199,147,124,121,133,//1080P60               
+ 191                  };      
+ 192          
+ 193                  for(i=0;i<6;i++)
+ 194                          pData[i]=YPBPR_ADC_DEFAULT[stModeInfo.ModeCurr][i];
+ 195                  CScalerPageSelect(_PAGE0);
+ 196                  CScalerWrite(_P0_RED_GAIN_C0, 6, pData, _AUTOINC);              
+ 197          
+ 198          }*/
+ 199          /**
+ 200           * CYPbPrSetupMode
+ 201           * set YPbPr for display
+ 202           * @param <none>
+ 203           * @return {none}
+ 204           *
+ 205          */
+ 206          //--------------------------------------------------
+ 207          // Description  : Setup YPbPr mode
+ 208          // Input Value  : None
+ 209          // Output Value : None
+ 210          //--------------------------------------------------
+ 211          bit CYPbPrSetupMode(void)
+ 212          {
+ 213   1          BYTE option = 0;
+ 214   1      
+ 215   1      #if(_YPBPR_NEW_SYNC_DETECT == _ON)
+              //Ypbpr issue
+              /*
+                      static UINT8 code SOY_CLAMP[10][3] =    
+                      {       //Clamp Start,  Clamp End,      Compare Level
+                              0x10,0x18,0x1c,//0x20,          //MODE_576i   (OK )    
+                              0x08,0x18,0x1c,//0x28,          //MODE_480i   (OK) D1   
+                              0x10,0x18,0x1c,//0x20,          //MODE_576p   (OK )   
+                              0x08,0x16,0x1c,//0x25,          //MODE_480p   (OK) D2  
+                              0x22,0x3A,0x1c,//0x20,          //MODE_720p60 (OK )    
+                              //0x22,0x3A,0x2a,               //MODE_1080i25(OK )             
+                      //0x22,0x3A,0x2a,               //MODE_1080i30(OK )   
+                              0x22,0x3A,0x1c,//0x23,          //MODE_1080i25(OK )             
+                      0x22,0x3A,0x1c,//0x25,          //MODE_1080i30(OK )   
+              
+                              0x22,0x3A,0x1c,//0x20,          //MODE_720p50 (OK )    
+                              0x22,0x3A,0x1c,//0x20,          //MODE_1080p50(OK )
+                              0x22,0x3A,0x1c,//0x20,          //MODE_1080p60(OK )
+                      };
+              */
+                  UINT8 code SOY_CLAMP[11][3] =       
+                      {       //Clamp Start,  Clamp End,      Compare Level
+                              0x10,0x25,0x27,//0x20,          //MODE_576i   (OK )    
+                              0x10,0x25,0x27,//0x28,          //MODE_480i   (OK) D1   
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 5   
+
+                              0x10,0x25,0x27,//0x20,          //MODE_576p   (OK )   
+                              0x10,0x25,0x27,//0x25,          //MODE_480p   (OK) D2  
+                              0x70,0xA0,0x27,//0x20,          //MODE_720p60 (OK )    
+                              //0x22,0x3A,0x2a,                       //MODE_1080i25(OK )             
+                      //0x22,0x3A,0x2a,                       //MODE_1080i30(OK )   
+                              0x60,0x85,0x27,//0x23,          //MODE_1080i25(OK ) (274M)              
+                              0x60,0x85,0x27,//0x23,          //MODE_1080i25(OK ) (295M)              
+                      //0x40,0x50,0x20,//0x25,        //MODE_1080i30(OK )   
+                              //0x60,0x85,0x27,//0x25,                //MODE_1080i30(OK ) 
+                              0x60,0x85,0x27,//0x25,  //MODE_1080i30(OK ) 
+                              0x70,0xA0,0x27,//0x20,          //MODE_720p50 (OK )    
+                              0x50,0x65,0x27,//0x20,          //MODE_1080p50(OK )
+                              0x50,0x65,0x27,//0x20,          //MODE_1080p60(OK )
+                      };
+              
+                      //back up table from hill
+                      /*
+                      { //Clamp Start, Clamp End, Compare Level
+                              //Clamp Start, Clamp End,  Compare Level
+                              0x00,   0x1B,   0x20,           //MODE_576i 
+                              0x00,   0x17,   0x20,           //MODE_480i
+                              0x00,   0x17,   0x20,           //MODE_576p
+                              0x00,   0x13,   0x20,           //MODE_480p
+                              0x14,   0x67,   0x20,           //MODE_720p60
+                              0x16,   0x4c,   0x20,           //MODE_1080i25
+                              0x16,   0x4c,   0x20,           //MODE_1080i30
+                              0x14,   0x67,   0x20,           //MODE_720p50 
+                              0x16,   0x44,   0x20,           //MODE_1080p50
+                              0x16,   0x44,   0x20,           //MODE_1080p60
+                      };      
+                      */
+              #endif
+ 271   1      
+ 272   1          // Get information from mode table, such as IHTotal, IHStartPos, IHWidth, IVStartPos, IVHeight.
+ 273   1          CYPbPrGetModeInfo();
+ 274   1      
+ 275   1          // Start up settings of VGA mode.
+ 276   1          CModeStartUpVGA();
+ 277   1      
+ 278   1          // Start up settings of YPbPR mode.
+ 279   1          CYPbPrStartUp();    
+ 280   1              
+ 281   1          // Get scaling option, Capture window setup, Scaling setup, Display setup
+ 282   1          CModeSetupDisplay();
+ 283   1      
+ 284   1              // Setup color conversion
+ 285   1              CModeSetupColorConversion();//jerry20070605
+ 286   1      
+ 287   1          CEepromLoadColorTempData();
+ 288   1          CEepromLoadHueSatData();
+ 289   1          CAdjustYpbprSaturation(GET_SATURATION());
+ 290   1          CAdjustYpbprhue(50);//GET_HUE());
+ 291   1          CAdjustBacklight();
+ 292   1              CAdjustBrightness();
+ 293   1              CAdjustContrast();
+ 294   1          CAdjustAdcGainOffset(); //V304 modify
+ 295   1              //080324
+ 296   1      ///    CAdjustAdcClock(stModeUserData.Clock);
+ 297   1          //CAdjustAdcClock(stModeUserData.Clock, 0);
+ 298   1          // Eric 0617
+ 299   1          CAdjustAdcClockYPbPr(stModeUserData.Clock);
+ 300   1          CAdjustPhase(stModeUserData.Phase);
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 6   
+
+ 301   1          CAdjustHPosition();
+ 302   1          CAdjustVPosition();
+ 303   1          CAdjustPeakingFilter(GET_PEAKING_CORING());
+ 304   1          CScalerSetByte(_P1_I_CODE_M_A1,0x00);//eric 20070613 for DVD player         
+ 305   1          CScalerSetByte(_P1_I_CODE_L_A2,0x05);        
+ 306   1      
+ 307   1      
+ 308   1      #if(_YPBPR_NEW_SYNC_DETECT == _ON)
+                  //forster modified 061102
+                  CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_G_CLAMP_START_00, SOY_CLAMP[stModeInfo.ModeCur
+             -r][0]);
+                      CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_G_CLAMP_END_01, SOY_CLAMP[stModeInfo.ModeCurr][1]
+             -);
+                  CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_BR_CLAMP_START_02, SOY_CLAMP[stModeInfo.ModeCu
+             -rr][0]);
+                      CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_BR_CLAMP_END_03, SOY_CLAMP[stModeInfo.ModeCurr][1
+             -]);
+                  CScalerPageSelect(_PAGE0); //_P0_SOG0_CTRL_AB
+              #if(_YPBPR_HW_AUTO_SOY != _ENABLE)
+                      #if(_YPBPR_SYNC_SOURCE == _SOG0)
+                      CScalerSetByte(_P0_ADC_SOG0_CTRL_D2,SOY_CLAMP[stModeInfo.ModeCurr][2]); 
+                      #else
+                      CScalerPageSelect(_PAGEB);
+                      CScalerSetByte(_PB_SOYCH0_CFG3_C3,SOY_CLAMP[stModeInfo.ModeCurr][2]);//20071122 
+                      #endif  
+              #endif           
+              
+                      CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_CLAMP_CTRL0_04, 0x02);
+                      CScalerSetDataPortByte(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_CLAMP_CTRL1_05, 0x83);
+                               
+                  CScalerSetBit(_SYNC_INVERT_48, ~_BIT2, _BIT2|_BIT0);        //clamp output & HSFB                                           //Modify:2006.4.11A en
+             -d Jerry
+              #endif
+ 329   1      
+ 330   1              CScalerPageSelect(_PAGE0);
+ 331   1          if(CGetSourcePortType(_GET_INPUT_SOURCE()) == _YPBPR_A0_PORT)
+ 332   1              {
+ 333   2                  CScalerSetBit(_P0_ADC_CLAMP_CTRL0_D4, ~(_BIT7 | _BIT6 | _BIT5 | _BIT4), (_BIT7 | _BIT6 | _BIT5 | _BIT
+             -4));
+ 334   2              CTimerDelayXms(10);
+ 335   2              CScalerSetBit(_P0_ADC_DCR_CTRL_D3, ~_BIT4, 0x00);
+ 336   2          }
+ 337   1          else
+ 338   1              {
+ 339   2                  CScalerSetBit(_P0_ADC_CLAMP_CTRL0_D4, ~(_BIT3 | _BIT2 | _BIT1 | _BIT0), (_BIT3 | _BIT2 | _BIT1 | _BIT
+             -0));
+ 340   2              CTimerDelayXms(10);
+ 341   2              CScalerSetBit(_P0_ADC_DCR_CTRL_D3, ~_BIT0, 0x00);
+ 342   2          }
+ 343   1      
+ 344   1              CScalerSetByte(_COLOR_CTRL_62, 0x03);
+ 345   1              //YPbPrADCDefault();
+ 346   1              
+ 347   1          CScalerSetBit(_COLOR_CTRL_62,~_BIT2,_BIT2);         //  Enable SRGB
+ 348   1          CAccAdjust(GET_DCC_MODE());  // set DCC mode
+ 349   1      
+ 350   1          CAdjustPeakingCoding();
+ 351   1      
+ 352   1      #if(_AdjustCustomerColorMode == _ENABLE)
+                      CAdjustCustomerColorMode();
+              #endif
+ 355   1      
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 7   
+
+ 356   1          CScalerPageSelect(_PAGE0);
+ 357   1          CScalerSetBit(_P0_ADC_RBG_CTRL_CE, 0x0F, (1/*ucAdcPGA*/ << 4) & 0xF0);
+ 358   1          CScalerPageSelect(_PAGE2);
+ 359   1          CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~(_BIT3 | _BIT2 | _BIT1 | _BIT0), 0x00);
+ 360   1              CScalerPageSelect(_PAGE6);
+ 361   1              CScalerSetBit(_P6_ENABLE_BIST_CTRL_A0, ~_BIT3, 0x00);           //Disable De-interlace Mode             
+ 362   1      
+ 363   1      #if(_DE_INTERLACE_SUPPORT == _ON)
+ 364   1              if(stModeInfo.ModeCurr <= 1)    // Only for 480i/576i
+ 365   1                      CModeDeInterlaceSetting();
+ 366   1      #endif
+ 367   1      
+ 368   1          //forster modified 061123
+ 369   1          CAdjustInterlaceIVS2DVSDelay();
+ 370   1      
+ 371   1          pData[0] = CFrameSyncDo();
+ 372   1              if(pData[0] == 2)
+ 373   1              {
+ 374   2              return _FALSE;
+ 375   2          }
+ 376   1                      
+ 377   1      
+ 378   1              if(ucCurrState == _SEARCH_STATE)
+ 379   1              CYPbPrPorch_LevelCheck();
+ 380   1              CAdjustInterlaceIVS2DVSProtection();
+ 381   1          CTimerDelayXms(30);
+ 382   1          CModeSetupEtcs(_FUNCTION_ENABLE);
+ 383   1      
+ 384   1              return _TRUE;   
+ 385   1      }
+ 386          
+ 387          #if(_YPBPR_HW_AUTO_SOY == _ENABLE)
+ 388          void CYPbPrHWAutoSOY(void)
+ 389          {
+ 390   1      #if(_YPBPR_SYNC_SOURCE == _SOG0)
+                  CScalerPageSelect(_PAGEB);
+                  CScalerSetByte(0xc0, 0x11);
+                  CScalerSetByte(0xc2, 0x88);
+                  CScalerSetByte(0xc5, 0x06);
+                  CScalerSetByte(0xc6, 0x40);
+                  CScalerSetByte(0xc7, 0x00);
+                  CScalerSetByte(0xc8, 0x20);
+                  CScalerSetByte(0xc9, 0x00);
+                  CScalerSetByte(0xc3, 0x9E);
+                  CScalerSetByte(0xc4, 0x08);
+              #else
+ 402   1          CScalerPageSelect(_PAGEB);
+ 403   1          CScalerSetByte(0xd0, 0x11);
+ 404   1          CScalerSetByte(0xd2, 0x88);
+ 405   1          CScalerSetByte(0xd5, 0x06);
+ 406   1          CScalerSetByte(0xd6, 0x40);
+ 407   1          CScalerSetByte(0xd7, 0x00);
+ 408   1          CScalerSetByte(0xd8, 0x20);
+ 409   1          CScalerSetByte(0xd9, 0x00);
+ 410   1          CScalerSetByte(0xd3, 0x9E);
+ 411   1          CScalerSetByte(0xd4, 0x08);
+ 412   1      #endif
+ 413   1      }
+ 414          #endif
+ 415          
+ 416          #endif  // End of #if(_YPBPR_SUPPORT == _ON)
+ 417          
+C51 COMPILER V9.00   YPBPR                                                                 08/25/2023 16:47:32 PAGE 8   
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    716    ----
+   CONSTANT SIZE    =    278    ----
+   XDATA SIZE       =   ----       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

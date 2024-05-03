@@ -1,0 +1,264 @@
+C51 COMPILER V9.00   MAIN                                                                  08/25/2023 16:47:30 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Output\Main.obj
+COMPILER INVOKED BY: C:\Program Files (x86)\Keil\C51\BIN\C51.EXE Core\code\Main.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG O
+                    -BJECTEXTEND PRINT(.\Output\Main.lst) OBJECT(.\Output\Main.obj)
+
+line level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // Copyright of Realtek SemiConductor Corp.
+   3          // Model   : RTD2553V
+   4          // Version : V0.00c (08.31.2005)
+   5          //
+   6          //----------------------------------------------------------------------------------------------------
+   7          
+   8          //----------------------------------------------------------------------------------------------------
+   9          // ID Code      : Main.c No.0002
+  10          // Update Note  :
+  11          //
+  12          //----------------------------------------------------------------------------------------------------
+  13          /*
+  14          ÉèÖÃTTLÏÔÊ¾ÆÁ²ÎÊý£º
+  15                          PNL_TLL.h
+  16                                          ->8£¬Ñ¡Ôñ4-6ÐÐµÄÆÁÄ»´óÐ¡£¨ÆäËûÆÁÄ»´óÐ¡¿ÉÒÔÉè¶¨£¬ÐèÒªÐ´ÆÁÄ»²ÎÊý£©
+  17                                          ->114£¬ÐÞ¸Ä800*480ÆÁµÄÎ»³¤£¨18Î»»á»¨ÆÁ£©
+  18                                          ->123£¬ÐÞ¸Ä800*480ÆÁµÄÑÕÉ«·´×ª£¨BGR->RGB£©
+  19                                          ->150-153£¬ÉèÖÃCGA/VGA¹ýÂËÆ÷
+  20          CGAÐÅºÅÊ¶±ð£º
+  21                          Mode.c
+  22                                          ->486£¬×¢ÊÍµô498ºÍ499ÐÐ´úÂë£¨Ô­Òò£ºcgaµãÊý³¬¹ý¹«²î£©
+  23                          ModeTable.h
+  24                                          ->659£¬ÐÞ¸ÄCGAÐÅºÅÊäÈë³õÊ¼Î»ÖÃ²ÎÊý
+  25                                          ->97£¬µ÷ÕûÆä¹«²îÖµ
+  26          Ù¤ÂíÉèÖÃ£º
+  27                          MainDef.h
+  28                                          ->87£¬Ù¤ÂíÉèÖÃ²»Õý³£»á»¨ÆÁ£¬É«²Ê»á²»Õý³£
+  29          ÔöÌíVGAÖ§³Ö£º
+  30                          Pcb_RTD358D_LCDTV_DEMO_PCB1.h
+  31                                          ->44,Ìí¼ÓVGAÖ§³Ö
+  32                          Main.c
+  33                                          ->109,ÉèÖÃVGAÀ´Ô´£¨±ØÐëÒªÊÖ¶¯ÉèÖÃÀ´Ô´£©
+  34                                          
+  35          ----------------------------------------------------2022/11/12-----------------------------
+  36          ÉèÖÃ±³¹â£º
+  37                          Pcb_RTD358D_LCDTV_DEMO_PCB1.h
+  38                                          ->239£¬¸Ä¶Ë¿ÚÎª_MCU_PORT81£¬ÐèÒª²édatasheet£¨²»ÊÇÐ¾Æ¬Òý½Å£©
+  39                          Power.h
+  40                                          ->178,ÉèÖÃ±³¹â·´Ïà(1)
+  41          logoÏÔÊ¾ÉèÖÃ£º
+  42                          Pcb_RTD358D_LCDTV_DEMO_PCB1.h
+  43                                          ->445,ÉèÖÃÎª_DISABLE£¬²»ÏÔÊ¾logo
+  44          ÉèÖÃÓïÑÔ£º
+  45                          EepromDefaultCustomer.h
+  46                                          ->257,0x00(En),0x01(ch)
+  47                                          
+  48          **ÓÅ»¯×Ô¶¯µ÷ÕûºÍCGAÐÅºÅÐÞ¸Ä£º
+  49                          Auto.c
+  50                                          ->34£¬user setting²¿·Ö
+  51                                          (ÏµÍ³Ä¬ÈÏµÄ²ÎÊý²»ÊÊÓÃ£¬ÐèÒªÓÃ»§×Ô¼º¸ü¸ÄÉè¶¨£¬¾ßÌå²ÎÊý¸ù¾ÝÏÔÊ¾Ð§¹ûÀ´ÉèÖÃ£¬
+  52                                          ÈôÏÔÊ¾Ð¡ÓÚÆÁÄ»´óÐ¡£¬ÐèÒªÔö´óÊäÈëÔ´µÄHTotal²ÎÊý£¬ÐÞ¸ÄCAdjustAdcClockº¯ÊýµÄ
+  53                                          usClock²ÎÊý£»Èç¹ûÒªÌí¼ÓÖ¸¶¨µÄÊäÈë·Ö±æÂÊÐÅºÅ£¬
+  54                                          ÔÚ¶ÔÓ¦´¦Ìí¼Óelse ifÓï¾ä£¬51ÐÐ´úÂë´¦)
+C51 COMPILER V9.00   MAIN                                                                  08/25/2023 16:47:30 PAGE 2   
+
+  55                                          
+  56          ²Ã¼ôeeprom£º
+  57                          eeprom.c
+  58                                          ->31-61,É¾³ýËùÓÐÓëeepromÓÐ¹ØµÄÓï¾ä£¬Ö»±£Áô¼ÓÔØÏµÍ³Ô¤ÉèÐÅÏ¢µÄÓï¾ä
+  59                                          £¨ÆäËûÓÐ¹Øeeprom²Ù×÷µÄº¯ÊýÓÐ±»ÆäËûÎÄ¼þËùÓ¦ÓÃ£¬É¾¼õºÜÂé·³£¬eepromÓÐ¹ØµÄÒý½Å
+  60                                          »¹ÊÇ±»Ê¹ÓÃ£¬µ«ÊÇÓ²¼þÉÏ²»¼ÓeepromÍ¬Ñù¿ÉÒÔÕý³£ÔËÐÐ£©
+  61          ÓÅ»¯TTLÏÔÊ¾£º
+  62                          PNL_TLL.h       
+  63                                          ->156£¬Ôö¼ÓttlÑÓÊ±²ÎÊý£¬È·±£ÏÔÊ¾ÎÈ¶¨
+  64          µ÷ÊÔ£º
+  65                          Main.c
+  66                                          ->204,È¡ÏûÁË°´¼ü³ÌÐò£¬ÔÚ³ÌÐòÖÐ¼ÓÈëosdÖ÷½çÃæ¿É²é¿´ÊäÈëÐÅºÅ·Ö±æÂÊ£¬·½±ãµ÷ÊÔ
+  67                          £¨ÔÚÓÅ»¯×Ô¶¯µ÷Õû³ÌÐòÊ±ÓÐÓÃ£©    
+  68          
+  69          ----------------------------------------------------2022/12/23-----------------------------
+  70          **ÓÅ»¯×Ô¶¯µ÷Õû£º
+  71                          Auto.c
+  72                                          ->56£¬Ôö¼Ó¶Ô640 x 480 x 60 HzµÄÖ§³Ö
+  73                                          ->48,È¡Ïû×Ô¶¯¼ì²âÆðÊ¼Î»ÖÃ³ÌÐò
+  74                                          ->51-53,ÊÖ¶¯¶ÔÆëÆÁÄ»£¬Ôö¼Ó¶ÔÆÁÄ»×Ô¶¯»¯³ÌÐòµÄÎÈ¶¨Ö§³Ö
+  75                          Sync.c
+  76                                          ->169-187£¬È¡ÏûÎÈ¶¨ÐÔ¼ì²é
+  77                                          ->461-462£¬¼Ó¿ì³ÌÐòÔËÐÐËÙ¶È
+  78                          OsdProc003.c
+  79                                          ->703-726£¬É¾³ý×Ô¶¯µ÷Õû³ÌÐòÌáÊ¾
+  80          ----------------------------------------------------×Ô¶¯µ÷Õû³ÌÐòÐÞ¸Ä-----------------------------
+  81          µÚÒ»ÖÖ£º
+  82                          OsdProc003.c
+  83                            ¶ÔOSDÊÂ¼þÏàÓ¦º¯Êý½øÐÐÐÞ¸ÄCOsdEventMsgProc£¬µÚ384ÐÐÐÞ¸Ä×Ô¶¯ÅäÖÃÄÚÈÝ_DO_AUTO_CONFIGÔöÌí»òÉ¾³ý×Ô¶¯µ÷Õûº¯Ê
+             -ýCShowAutoAdjust
+  84          µÚ¶þÖÖ
+  85                          Auto.c  
+  86                            µÚ43ÐÐÓÅ»¯cgaÐÅºÅ×Ô¶¯µ÷ÕûµÄÑ¡ÏîÖÐ½«×Ô¶¯¼ì²âÆðÊ¼Î»ÖÃµÄº¯ÊýCAutoDoAutoPosition×¢ÊÍµô£¬Ìí¼ÓÎÒÃÇ×Ô¼ºµÄÎ»ÖÃ
+             -Éè¶¨º¯Êý£¬µ«ÊÇÐèÒª¸ù¾Ý¿ÉÄÜ³öÏÖµÄ¹æÂÉÉè¶¨Ïà¹ØÖµ
+  87                                  µ«ÊÇ
+  88          */
+  89          #define __MAIN__
+  90          
+  91          #include "Core\Header\Include.h"
+  92          
+  93          
+  94          /**
+  95           * CMainUserInitial
+  96           * Setting some flags for user when initial
+  97           * @param <none>
+  98           * @return {none}
+  99           *
+ 100           */
+ 101          extern void fuck_you_made();
+ 102          
+ 103          void CMainUserInitial(void)
+ 104          {
+ 105   1              // User can make some initial settings at firmware startup
+ 106   1              CLR_PANELPOWERSTATUS();
+ 107   1              CLR_LIGHTPOWERSTATUS();
+ 108   1              CLR_FRAMESYNCSTATUS();
+ 109   1              CLR_POWERSWITCH();
+ 110   1              CLR_FIRST_ADCCLOCK();
+ 111   1          CLR_OSD_READYFORDISPLAY();
+ 112   1      #if(_HDMI_SUPPORT == _ON)
+ 113   1             CLR_HDMIINPUT();
+ 114   1      #endif
+C51 COMPILER V9.00   MAIN                                                                  08/25/2023 16:47:30 PAGE 3   
+
+ 115   1              SET_FIRST_LOADFONT();
+ 116   1      #if defined(CONFIG_VBI_ENABLE)
+                      CLR_OSDVBI_INITIAL();
+              #endif
+ 119   1              //SET_SOURCE_AUTOCHANGE();
+ 120   1              CLR_SOURCE_AUTOCHANGE();
+ 121   1              SET_PRE_VGA_CONNECT(bVGACONNECT);
+ 122   1      #if(_TMDS_SUPPORT == _ON)
+ 123   1      #if (_HDMI_SUPPORT == _ON)
+ 124   1              SET_PRE_HDMI_CONNECT(bHDMICONNECT);
+ 125   1      #else
+                      SET_PRE_DVI_CONNECT(bDVICONNECT);
+              #endif
+ 128   1      #endif
+ 129   1              CLR_USE_TRANSITION_RESULT();
+ 130   1          CheckLanguage();
+ 131   1      }
+ 132          
+ 133          /**
+ 134           * CMainSystemInitial
+ 135           * Initial the system for once when power up
+ 136           * @param <none>
+ 137           * @return {none}
+ 138           *
+ 139           */
+ 140          void CMainSystemInitial(void)
+ 141          {          
+ 142   1      #if(_VIDEO_TV_SUPPORT)
+                  ucAddrIfPllDM = _ADDR_IfPllDM;
+              #endif
+ 145   1      
+ 146   1          // Initial MCU
+ 147   1              CMcuInitial();//MCU init
+ 148   1      //    CMuteOn();//ÉùÒô¿ØÖÆ
+ 149   1      #if(_HDCP_SUPPORT == _ON && _HDMI_HOT_PLUG_OPTION)
+                      bHot_Plug = _HOT_PLUG_LOW;
+              #endif
+ 152   1      
+ 153   1          // Initial timer events
+ 154   1              CTimerInitialTimerEvent();//¶¨Ê±Æ÷³õÊ¼»¯
+ 155   1      
+ 156   1          CPowerLightPowerOff();//±³¹âÉèÖÃ
+ 157   1          CPowerPanelPowerOff();//LCD µçÔ´Éè¶¨¡£
+ 158   1      //      CScalerPageSelect(_PAGE0);//eric 20070529
+ 159   1      //      CScalerSetByte(_P0_POWER_ON_RESET_F3,_BIT7|_BIT6);              
+ 160   1      
+ 161   1          // Check eeprom and load eeprom settings
+ 162   1              CEepromStartupCheck();//eepromÊý¾ÝÔØÈë
+ 163   1          //_SET_INPUT_SOURCE(_SOURCE_HDMI);//Éè¶¨ÐÅºÅÀ´Ô´
+ 164   1      //    _SET_INPUT_SOURCE(_SOURCE_VIDEO_AV);
+ 165   1          _SET_INPUT_SOURCE(_SOURCE_VGA);
+ 166   1          SET_POWERSTATUS();
+ 167   1      
+ 168   1          // Initial scaler settings
+ 169   1              CScalerInitial();
+ 170   1      
+ 171   1          // Initial key scan status
+ 172   1              //CKeyInitial();
+ 173   1      
+ 174   1          // Initial user settings
+ 175   1              CMainUserInitial();
+ 176   1      
+C51 COMPILER V9.00   MAIN                                                                  08/25/2023 16:47:30 PAGE 4   
+
+ 177   1      
+ 178   1      #if(_VIDEO_SUPPORT == _ON)
+ 179   1          // Initial video settings
+ 180   1              CVideoInitial();
+ 181   1              CVideoOutputDisable();
+ 182   1      #else
+                  CInitInputSource();
+              #endif  // End of #if(_VIDEO_SUPPORT == _ON)
+ 185   1      
+ 186   1      
+ 187   1              CDDCCIInitial();
+ 188   1      #if(_RS232_EN)
+                      CUartInit();
+              #endif
+ 191   1              
+ 192   1          //CIrdaInitial();//ºìÍâ
+ 193   1      
+ 194   1              //bHot_Plug = _HOT_PLUG_LOW;//GMI SUN ADD ,201111221504
+ 195   1      
+ 196   1      }
+ 197          
+ 198          /**
+ 199           * main
+ 200           * main process
+ 201           * first system initial, then main loop
+ 202           * @param <none>
+ 203           * @return {none}
+ 204           *
+ 205          */
+ 206          void main(void)
+ 207          {
+ 208   1          CMainSystemInitial();
+ 209   1      //      CScalerSetByte(_P7_AUTO_SHP_CTRL_B7,0x00);
+ 210   1      //      fuck_you_made();
+ 211   1      //      CScalerPageSelect(_PAGE7);
+ 212   1      //      CScalerSetByte(_P7_AUTO_SHP_CTRL_B7,0xff);
+ 213   1      //      MSharpnessReturnUpMenu();
+ 214   1      //      bLED1 = _LED_OFF;
+ 215   1      //      bLED2 = _LED_OFF;
+ 216   1              CTimerDelayXms(1000);
+ 217   1              do
+ 218   1              {
+ 219   2                      CMiscIspDebugProc();                                         
+ 220   2                      CTimerHandler();
+ 221   2          //CKeyHandler();
+ 222   2                      CModeHandler();
+ 223   2                      COsdHandler(); 
+ 224   2                      //MMenuNoneEnterSubMenu();//debug
+ 225   2              }
+ 226   1      
+ 227   1          while(_TRUE);
+ 228   1              
+ 229   1      }
+ 230          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    154    ----
+   CONSTANT SIZE    =   1395    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     16    ----
+C51 COMPILER V9.00   MAIN                                                                  08/25/2023 16:47:30 PAGE 5   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

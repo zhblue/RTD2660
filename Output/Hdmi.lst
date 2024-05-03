@@ -1,0 +1,455 @@
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE HDMI
+OBJECT MODULE PLACED IN .\Output\Hdmi.obj
+COMPILER INVOKED BY: C:\Program Files (x86)\Keil\C51\BIN\C51.EXE Core\code\rtd2662\Hdmi.C LARGE OPTIMIZE(9,SPEED) BROWSE
+                    - DEBUG OBJECTEXTEND PRINT(.\Output\Hdmi.lst) OBJECT(.\Output\Hdmi.obj)
+
+line level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : RTD2528R_Hdmi.c No.0000
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __HDMI__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          
+  12          #if(_HDMI_SUPPORT == _ON)
+  13          //--------------------------------------------------
+  14          // Description  : Detect DVI/HDMI input format
+  15          // Input Value  : None
+  16          // Output Value : Return _FALSE if Input Format isn't HDMI, _TRUE while Input Format is HDMI
+  17          //--------------------------------------------------
+  18          bit CHdmiFormatDetect(void)
+  19          {
+  20   1          CScalerPageSelect(_PAGE2);
+  21   1          CScalerRead(_P2_HDMI_SR_CB, 1, pData, _NON_AUTOINC);
+  22   1      
+  23   1          if((pData[0] & 0x01) == 0x01)//Input source is the HDMI format.
+  24   1          {
+  25   2              return _TRUE;
+  26   2          }
+  27   1          else
+  28   1          {
+  29   2              return _FALSE;
+  30   2          }
+  31   1      }
+  32          
+  33          //--------------------------------------------------
+  34          // Description  : Detect Audio Lock status
+  35          // Input Value  : None
+  36          // Output Value : Return _FALSE if Audio Lock is ok, _TRUE while Audio mislock, FIFO underflow/overflow
+  37          //--------------------------------------------------
+  38          bit CHdmiAudioFIFODetect(void)
+  39          {
+  40   1          CScalerPageSelect(_PAGE2);
+  41   1          CScalerRead(_P2_HDMI_SR_CB, 1, pData, _NON_AUTOINC);
+  42   1      
+  43   1          if((pData[0] & 0x06) == 0)
+  44   1          {
+  45   2              return _FALSE;
+  46   2          }
+  47   1      
+  48   1          return _TRUE;
+  49   1      }
+  50          
+  51          //--------------------------------------------------
+  52          // Description  : HDMI Video Setting
+  53          // Input Value  : None
+  54          // Output Value : Return _FALSE if Set_AVMute is true, _TRUE while Video Setting is OK.
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 2   
+
+  55          //--------------------------------------------------
+  56          bit CHdmiVideoSetting(void)
+  57          {
+  58   1          CScalerPageSelect(_PAGE2);
+  59   1          CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCR_00, ~(_BIT1 | _BIT0), _BIT1);//Set HDMI/DVI 
+             -decide condition//731301
+  60   1          CTimerDelayXms(50);//731301             
+  61   1          
+  62   1          if(CHdmiFormatDetect())//Input source is the HDMI format.
+  63   1          {
+  64   2              SET_HDMIINPUT();
+  65   2      
+  66   2              CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), 0x00);
+  67   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ACRCR_51, ~_BIT2, _BIT2);//Enable Pixel Repe
+             -tition down sampling auto mode
+  68   2      
+  69   2      #if(_HDCP_SUPPORT == _ON)
+  70   2              CScalerSetDataPortByte(_P2_HDCP_ADDR_PORT_C3, 0x40, 0x93);//Change to HDCP1.1 for HDMI
+  71   2      #endif
+  72   2              //HDMI Video & Audio Part
+  73   2              CScalerSetBit(_P2_HDMI_SR_CB, ~(_BIT5 | _BIT3 | _BIT2),_BIT5 | _BIT3 | _BIT2);
+  74   2              CTimerDelayXms(100);
+  75   2              CScalerRead(_P2_HDMI_SR_CB, 1, pData, _NON_AUTOINC);
+  76   2              if(!(bit)(pData[0] & 0x40))//For Clear_AVMute
+  77   2              {
+  78   3                  SET_AVRESUME();//Audio WD can't action, when Set_AVMute happen.
+  79   3                  CAdjustDisableHDMIWatchDog(_WD_SET_AVMUTE_ENABLE);//Disable Set_AVMute Watch Dog //731301
+  80   3                  CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AVMCR_30, ~_BIT3, _BIT3);//Enable DVI/HD
+             -MI video output
+  81   3                  CAdjustEnableHDMIWatchDog(_WD_SET_AVMUTE_ENABLE);//Enable Set_AVMute Watch Dog //731301
+  82   3              }
+  83   2              else
+  84   2              {
+  85   3                  CTimerDelayXms(100);//For AV_Mute Delay
+  86   3                  CLR_AVRESUME();
+  87   3                  return _FALSE;
+  88   3              }
+  89   2                      SET_VIDEOMODECHANGE();//check color space everytimes
+  90   2                      //HDMI Video Part
+  91   2              CScalerRead(_P2_HDMI_GPVS_CC, 1, pData, _NON_AUTOINC);
+  92   2              if(((bit)(pData[0] & 0x01)) || GET_VIDEOMODECHANGE())//For HDMI switch between RGB/YCbCr
+  93   2              {
+  94   3                  CLR_VIDEOMODECHANGE();
+  95   3                  CScalerSetBit(_P2_HDMI_GPVS_CC, ~_BIT0, _BIT0);
+  96   3                  CScalerGetDataPortByte(_P2_HDMI_PSAP_CD, 0x00, 1, pData, _NON_AUTOINC);
+  97   3                  if((pData[0] & 0x23) == 0)//Check BCH data(Package error flag)
+  98   3                  {
+  99   4                      CScalerGetDataPortByte(_P2_HDMI_PSAP_CD, 0x04, 2, pData, _NON_AUTOINC);
+ 100   4                      if((bit)(pData[0] & 0x40) != (bit)(pData[0] & 0x20))//For HDMI switch between RGB/YUV
+ 101   4                      {
+ 102   5                                              if((pData[0]&0x20)==0x20)       //422
+ 103   5                                              {
+ 104   6                                                      CScalerPageSelect(_PAGE6);
+ 105   6                                                      CScalerSetBit(_P6_YUV422_TO_YUV444_D4, ~_BIT7, _BIT7);//enable
+ 106   6                                              }
+ 107   5                                      
+ 108   5                          if((pData[1] & 0xc0) != 0xc0)//For HDMI switch between ITU601/ITU709
+ 109   5                          {
+ 110   6                              CScalerSetByte(_YUV2RGB_CTRL_9C, 0x08);
+ 111   6      
+ 112   6                              if((bit)(pData[1] & 0x40))
+ 113   6                              {
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 3   
+
+ 114   7                                      //DebugPrintf("\n ITU601%c ",0x20);
+ 115   7                                  CScalerCodeW(tHDMI_YPBPR_ITU601);
+ 116   7                              }
+ 117   6                              else
+ 118   6                              {
+ 119   7                                      //DebugPrintf("\n ITU709%c ",0x20);
+ 120   7                                  CScalerCodeW(tHDMI_YPBPR_ITU709);
+ 121   7                              }
+ 122   6                              CScalerSetByte(_YUV2RGB_CTRL_9C, 0x05);
+ 123   6                          }
+ 124   5                      }
+ 125   4                      else if(!(bit)(pData[0] & 0x60))
+ 126   4                      {
+ 127   5                          CScalerSetByte(_YUV2RGB_CTRL_9C, 0x00);
+ 128   5                      }
+ 129   4                  }
+ 130   3              }
+ 131   2          }
+ 132   1          else
+ 133   1          {
+ 134   2              CLR_HDMIINPUT();
+ 135   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ACRCR_51, ~_BIT2, 0x00);//Disable Pixel Repe
+             -tition down sampling auto mode
+ 136   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_VCR_50, ~(_BIT3 | _BIT2 |_BIT1 |_BIT0), 0x00
+             -);
+ 137   2              CAdjustDisableHDMIWatchDog(_WD_HDMI_ALL);
+ 138   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AVMCR_30, ~_BIT3, _BIT3);//Enable DVI/HDMI v
+             -ideo output
+ 139   2              CScalerSetDataPortByte(_P2_HDCP_ADDR_PORT_C3, 0x40, 0x91);// Change to HDCP1.0 for DVI
+ 140   2              CScalerSetByte(_YUV2RGB_CTRL_9C, 0x00);
+ 141   2          }
+ 142   1          return _TRUE;
+ 143   1      }
+ 144          
+ 145          //--------------------------------------------------
+ 146          // Description  : Setting Audio Frequence Mode
+ 147          // Input Value  : None
+ 148          // Output Value : None
+ 149          //--------------------------------------------------
+ 150          void CHdmiAudioFirstTracking(void)
+ 151          {
+ 152   1          BYTE coeff = 0, s = 0, o = 1;
+ 153   1          WORD a = 1024, b = 0, m = 0;
+ 154   1          DWORD cts = 0, n = 0, freq = 0;
+ 155   1      
+ 156   1          CScalerPageSelect(_PAGE2);
+ 157   1          CScalerRead(_P2_HDMI_SR_CB, 1, pData, _NON_AUTOINC);
+ 158   1      
+ 159   1          if((CHdmiAudioFIFODetect() || GET_AVRESUME()) && (!(bit)(pData[0] & 0x40)))//For HDMI audio pll settin
+             -g
+ 160   1          {
+ 161   2              CLR_AVRESUME();
+ 162   2              CAdjustDisableHDMIWatchDog(_WD_AUDIO_FIFO);//Disable Audio Watch Dog //731301
+ 163   2                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_PSCR_15, 0x00);//Disable FIFO Trend
+ 164   2                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_CMCR_10, 0x50);//Update Double Buffer
+ 165   2              CScalerSetBit(_P2_HDMI_APC_C8, ~_BIT0, _BIT0);//HDMI Address Auto Increase Enable
+ 166   2      
+ 167   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ACRCR_51, ~_BIT1, _BIT1);
+ 168   2              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_NTX1024TR0_28, ~_BIT3, _BIT3);
+ 169   2              CTimerDelayXms(2);
+ 170   2      
+ 171   2              CScalerGetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ACRSR0_52, 5, pData, _NON_AUTOINC);
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 4   
+
+ 172   2              cts = ((DWORD)pData[0] << 12) | ((DWORD)pData[1] << 4) | (((DWORD)pData[2] >> 4) & 0x0f);
+ 173   2              n =   (((DWORD)pData[2] & 0x0f) << 16) | ((DWORD)pData[3] << 8) | (DWORD)pData[4];
+ 174   2      
+ 175   2              CScalerGetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_NTX1024TR0_28, 2, pData, _NON_AUTOINC);
+ 176   2              b = (((WORD)pData[0] & 0x07) << 8) | (WORD)pData[1];
+ 177   2      
+ 178   2              // Fa = (a*Fx*n)/(b*cts*128) = (1024*Fx*n)/(b*cts*128) = (8*Fx*n)/(b*cts)
+ 179   2              // calculate freq in 0.1kHz unit
+ 180   2                      freq = (DWORD)8 * 2 * 1000 * _RTD_XTAL / cts *(10*n) / ((DWORD)b * 1000);               
+ 181   2              freq = (freq >> 1) + (freq & 0x01);
+ 182   2              if((freq >= 318) && (freq <= 322))
+ 183   2              {
+ 184   3                  coeff = _AUDIO_MCK_32000;
+ 185   3                  freq  = 32000;
+ 186   3              }
+ 187   2              else if((freq >= 438) && (freq <= 444))
+ 188   2              {
+ 189   3                  coeff = _AUDIO_MCK_44100;
+ 190   3                  freq  = 44100;
+ 191   3              }
+ 192   2              else if((freq >= 476) && (freq <= 484))
+ 193   2              {
+ 194   3                  coeff = _AUDIO_MCK_48000;
+ 195   3                  freq  = 48000;
+ 196   3              }
+ 197   2              else if((freq >= 877) && (freq <= 887))
+ 198   2              {
+ 199   3                  coeff = _AUDIO_MCK_88200;
+ 200   3                  freq  = 88200;
+ 201   3              }
+ 202   2              else if((freq >= 955) && (freq <= 965))
+ 203   2              {
+ 204   3                  coeff = _AUDIO_MCK_96000;
+ 205   3                  freq  = 96000;
+ 206   3              }
+ 207   2              else if((freq >= 1754) && (freq <= 1774))
+ 208   2              {
+ 209   3                  coeff = _AUDIO_MCK_176400;
+ 210   3                  freq  = 176400;
+ 211   3              }
+ 212   2              else if((freq >= 1910) && (freq <= 1930))
+ 213   2              {
+ 214   3                  coeff = _AUDIO_MCK_192000;
+ 215   3                  freq  = 192000;
+ 216   3              }
+ 217   2              else
+ 218   2              {
+ 219   3                  SET_AVRESUME();
+ 220   3              }
+ 221   2      
+ 222   2              if(!GET_AVRESUME())
+ 223   2              {
+ 224   3                  do
+ 225   3                  {
+ 226   4                      s = s + 4;
+ 227   4                      ((DWORD *)pData)[0] = (DWORD)128 * freq * coeff * s;
+ 228   4                  }
+ 229   3                  while (((DWORD *)pData)[0] < 180000000);
+ 230   3      
+ 231   3                  o = 1;
+ 232   3                  m = ((DWORD *)pData)[0] * 2 / ((DWORD)_RTD_XTAL * 1000);
+ 233   3                  m = m + 1;
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 5   
+
+ 234   3                  s = s / (o * 2);
+ 235   3      
+ 236   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AAPNR_2D, 0x08);  // Disable SDM
+ 237   3      
+ 238   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_MCAPR_11, (m - 2));
+ 239   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCAPR_12, (coeff == _AUDIO_256_TIMES) ?
+             - ((s / 2) | 0x80) : (s / 2));
+ 240   3      #if(_AUDIO_LOCK_MODE == _HARDWARE_TRACKING)
+                          // Calculate D code
+                          ((DWORD *)pData)[1] = (DWORD)1000 * _RTD_XTAL * m / 2;  // PLL freq
+                          if (((DWORD *)pData)[0] > ((DWORD *)pData)[1])
+                          {
+                              a = (((DWORD *)pData)[0] - ((DWORD *)pData)[1]) * 128 / (((DWORD *)pData)[1] / 2048);
+              
+                              a = 0xffff - a;
+                          }
+                          else
+                          {
+                              a = (((DWORD *)pData)[1] - ((DWORD *)pData)[0]) * 128 / (((DWORD *)pData)[1] / 2048);
+              
+                              a += 100; // MUST for compatibility
+                          }
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DCAPR0_13, a >> 8);
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DCAPR1_14, a & 0xff);
+              #endif
+ 258   3      
+ 259   3                  CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DPCR0_38, ~(_BIT5 | _BIT4), (o << 4));
+ 260   3      
+ 261   3                  // Calculate Ich for audio PLL
+ 262   3                  pData[0] = (m < 5) ? 0 : ((m / 5) - 1);
+ 263   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DPCR1_39, pData[0] | 0x80);
+ 264   3      
+ 265   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DPCR3_3B, 0x03); // Enable K and enable
+             - VCOSTART
+ 266   3      
+ 267   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_CMCR_10, 0x50);  //Enable Double Buffer
+             - for K/M/S/D/O
+ 268   3      
+ 269   3                  CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DPCR0_38, ~(_BIT7 | _BIT6), 0x00);    //
+             - Enable PLL
+ 270   3                  CTimerDelayXms(1);
+ 271   3      #if(_AUDIO_LOCK_MODE == _HARDWARE_TRACKING)
+                          do
+                          {
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AAPNR_2D, 0x00);  // Disable SDM
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AAPNR_2D, 0x02);  // Enable SDM
+                              CTimerDelayXms(1);
+                              CScalerGetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_DPCR3_3B + 1, 2, pData, _NON_AUTOIN
+             -C);
+                          }
+                          while((((a >> 8) & 0xff) != pData[0]) || (((a >> 0) & 0xff) != pData[1]));
+              #endif
+ 281   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AOCR_62, 0x00);//Disable SPDIF/I2S Outp
+             -ut
+ 282   3                  CAdjustDisableHDMIWatchDog(_WD_SET_AVMUTE_ENABLE);//Disable Set_AVMute Watch Dog //731301
+ 283   3                  CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AVMCR_30, ~_BIT5, _BIT5);//Enable Audio 
+             -Output
+ 284   3                  CAdjustEnableHDMIWatchDog(_WD_SET_AVMUTE_ENABLE);//Enable Set_AVMute Watch Dog //731301
+ 285   3                  
+ 286   3      #if(_AUDIO_LOCK_MODE == _HARDWARE_TRACKING)
+                          //H/W FIFO Tracking
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_PSCR_15, 0x04);//Enable boundary tracki
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 6   
+
+             -ng
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ICBPSR1_25, 0x01);//Set I code
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_PCBPSR1_27, 0x01);//Set P code
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_STBPR_2A, 0x80);//Set Boundary Tracking Up
+             -date Response Time
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AAPNR_2D, 0xC2);
+              
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_FBR_1B, 0xe2);//0xe5 for DVR team ?
+                          CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_WDCR0_31, ~_BIT5, _BIT5);//Enable FIFO T
+             -racking//731301
+                          
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_CMCR_10, 0x50);//update double buffer
+              
+                          CScalerSetByte(_P2_HDMI_SR_CB, 0x06);//Write 1 clear
+              
+                          //Fine tune
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_PSCR_15, 0xEC);//Enable FIFO Trend
+                          CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_FTR_1A, 0x03);
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_ICTPSR1_21, 0x07);
+                              CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_CMCR_10, 0x50);//Update Double Buffer
+              #else
+ 307   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_PSCR_15, 0xfe);//Enable N/CTS tracking
+ 308   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, 0x1d, 0x05);//Set I code 
+ 309   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, 0x1f, 0x9F);//Set P code
+ 310   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AAPNR_2D, 0x02);
+ 311   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_CMCR_10, 0x50);//update double buffer
+ 312   3      #endif
+ 313   3      
+ 314   3                  SET_AUDIOWAITINGFLAG();
+ 315   3              }
+ 316   2              else
+ 317   2              {
+ 318   3                  CLR_AUDIOPLLLOCKREADY();
+ 319   3              }
+ 320   2          }
+ 321   1          else
+ 322   1          {
+ 323   2                      CLR_AUDIOPLLLOCKREADY();
+ 324   2          }
+ 325   1      }
+ 326          
+ 327          //--------------------------------------------------
+ 328          // Description  : Enable Audio Output
+ 329          // Input Value  : None
+ 330          // Output Value : None
+ 331          //--------------------------------------------------
+ 332          void CHdmiEnableAudioOutput(void)
+ 333          {
+ 334   1          CLR_AUDIOWAITINGTIMEOUT();//731301
+ 335   1              //DebugPrintf("\n HA%c",0x20);
+ 336   1              if(GET_AUDIOWAITINGFLAG())
+ 337   1          {
+ 338   2              CScalerSetByte(_P2_HDMI_SR_CB, 0x06);//Write 1 clear //731301
+ 339   2              //CTimerReactiveTimerEvent(SEC(1), CHdmiAudioWaitingFlagReadyEven);//731301
+ 340   2              CLR_AUDIOWAITINGFLAG();
+ 341   2              SET_AUDIOPLLLOCKREADY();
+ 342   2          }
+ 343   1          else
+ 344   1          {
+ 345   2              //DebugPrintf(" b%c",0x20);
+ 346   2                      if (CHdmiAudioFIFODetect() || GET_AVRESUME())//For HDMI audio pll setting
+ 347   2              {
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 7   
+
+ 348   3                      //DebugPrintf(" c%c",0x20);
+ 349   3                  CHdmiAudioFirstTracking();
+ 350   3                  //CTimerReactiveTimerEvent(SEC(1), CHdmiAudioWaitingFlagReadyEven);//731301
+ 351   3                  CLR_AUDIOPLLLOCKREADY();
+ 352   3              }
+ 353   2              else if (GET_AUDIOPLLLOCKREADY())
+ 354   2              {
+ 355   3                      //DebugPrintf(" d%c",0x20);
+ 356   3                              CLR_AUDIOPLLLOCKREADY();
+ 357   3      
+ 358   3      
+ 359   3      //modify Start
+ 360   3      //            CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AOCR_62, 0x0f);//Enable I2S Output
+ 361   3                  CScalerRead(_P2_HDMI_SR_CB, 1, pData, _NON_AUTOINC);
+ 362   3                  if((pData[0] & 0x16) == 0x00) //LPCM & no overflow/underflow in Audio FIFO
+ 363   3                      CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AOCR_62, 0xff);//Enable I2S Output
+ 364   3                  else
+ 365   3                      CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AOCR_62, 0xf0);//Disable I2S Output
+ 366   3                  CScalerSetDataPortByte(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_AFCR_03, 0x26);//Enable Audio FIFO
+ 367   3                  CAdjustEnableHDMIWatchDog(_WD_AUDIO_FOR_TMDS_CLOCK | _WD_AUDIO_FIFO);
+ 368   3      //modify End
+ 369   3      
+ 370   3              }
+ 371   2          }
+ 372   1              CTimerActiveTimerEvent(SEC(0.5), CHdmiAudioWaitingFlagReadyEven);//731301
+ 373   1      }
+ 374          
+ 375          //--------------------------------------------------
+ 376          // Description  : Audio Waiting Time Flag Ready
+ 377          // Input Value  : None
+ 378          // Output Value : None
+ 379          //--------------------------------------------------
+ 380          void CHdmiAudioWaitingFlagReadyEven(void)
+ 381          {
+ 382   1          SET_AUDIOWAITINGTIMEOUT();
+ 383   1      }
+ 384          
+ 385          
+ 386          #if (0)//_HDMI_HOT_PLUG_OPTION == _ENABLE)      
+              //741001***
+              void CHdmiModeChange()
+              {
+                      bHot_Plug = _HOT_PLUG_LOW;//bHot_Plug = 0;
+                  CTimerDelayXms(10);
+                      bHot_Plug = _HOT_PLUG_HI;//bHot_Plug = 1;
+                      //DebugPrintf("\n bHot_Plug!!!\n",'i');
+              }
+              //741001###
+              #endif
+ 397          
+ 398          #endif //End of #if(_HDMI_SUPPORT == _ON)
+ 399          
+ 400          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1813    ----
+   CONSTANT SIZE    =     44    ----
+   XDATA SIZE       =      3      21
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      1    ----
+C51 COMPILER V9.00   HDMI                                                                  08/25/2023 16:47:33 PAGE 8   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,1182 @@
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE SYNC
+OBJECT MODULE PLACED IN .\Output\Sync.obj
+COMPILER INVOKED BY: C:\Program Files (x86)\Keil\C51\BIN\C51.EXE Core\code\Sync.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG O
+                    -BJECTEXTEND PRINT(.\Output\Sync.lst) OBJECT(.\Output\Sync.obj)
+
+line level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Sync.c No.0003
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __SYNC__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          
+  12          /**
+  13          * CSyncProcess
+  14          * For VGA, DVI or YPbPr input source's state machine process.
+  15          * first system initial, then main loop
+  16          * @param <none>
+  17          * @return {none}
+  18          *
+  19          */
+  20          //--------------------------------------------------
+  21          // Description  : For VGA, DVI or YPbPr input source's state machine process.
+  22          // Input Value  : None
+  23          // Output Value : None
+  24          //--------------------------------------------------
+  25          void CSyncProcess(void)
+  26          {         
+  27   1      // Eric 0618
+  28   1      #if (_HDMI_SUPPORT == _ON)
+  29   1       #if(_HDMI_HOT_PLUG_OPTION)
+                  if (GET_POWERSTATUS())
+                  {
+                      if (bHDMICONNECT)
+                              bHot_Plug = _HOT_PLUG_HI;
+                      else
+                              bHot_Plug = _HOT_PLUG_LOW;
+                  }
+               #endif
+  38   1      #endif
+  39   1      
+  40   1              switch (ucCurrState) 
+  41   1              {       
+  42   2              case _SEARCH_STATE:
+  43   2                      if (CSyncHandler())//同步测试
+  44   2                      {
+  45   3                              // Source and sync OK
+  46   3                              if (CModeDetect())//模式设定 
+  47   3                              {
+  48   4                                      if (stModeInfo.ModeCurr == _MODE_NOSIGNAL)//无信号
+  49   4                                      {
+  50   5      #if(_HDMI_HOT_PLUG_OPTION)
+                                  bDVIDetect = 0;
+              #endif
+  53   5                                              ucCurrState = _NOSIGNAL_STATE;
+  54   5                                      #if (_HDMI_SUPPORT == _ON)
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 2   
+
+  55   5                                              if(CHdmiFormatDetect() && 
+  56   5                                                 (_GET_INPUT_SOURCE() == _SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI) && 
+  57   5                                                 ( ucHdmiTimerEvent ==0 || ucHdmiTimerEvent == _INACTIVE_COUNTDOWN_EVENT))//741001
+  58   5                                              {
+  59   6                                                      ucHdmiTimerEvent = _HDMI_NO_SIGNAL_CHECK_CNT;//741001
+  60   6                                              }
+  61   5                                      #endif
+  62   5                                      //      SET_READYFORDISPLAY();
+  63   5                                      }
+  64   4                                      else if (stModeInfo.ModeCurr == _MODE_NOSUPPORT)//不支持的信号
+  65   4                                      {
+  66   5      #if(_HDMI_HOT_PLUG_OPTION)
+                                  bDVIDetect = 0;
+              #endif
+  69   5                                              CModeAutoMeasureOn();
+  70   5                                              ucCurrState = _NOSUPPORT_STATE;
+  71   5                                      }
+  72   4                                      else            //make sure input soure OK and display mode
+  73   4                                      {
+  74   5                              #if(_HDMI_SUPPORT == _ON && _HDMI_HOT_PLUG_OPTION == _ENABLE)
+                                                      if(!CHdmiFormatDetect() && (_GET_INPUT_SOURCE() == _SOURCE_HDMI) && bDVIDetect == 0)
+                                  {              
+                                      bDVIDetect = 1;
+                                      bHot_Plug = _HOT_PLUG_LOW;
+                                      CTimerDelayXms(300);
+                                      bHot_Plug = _HOT_PLUG_HI;
+                                      CModeResetMode();
+                                      return;
+                                  }
+                          #endif
+  85   5      
+  86   5        #if(_OSD_TYPE == _OSD003)
+  87   5          #if(_CHANGE_SOURCE_METHOD == _CHANGE_SOURCE_METHOD_0)
+                                  if ((ucOsdState < _MI_SOURCE_VGA || ucOsdState > _MI_SOURCE_TV) && _GET_INPUT_SOURCE()
+             - != _SOURCE_HDMI)
+                  #else
+  90   5                              if(_GET_INPUT_SOURCE() != _SOURCE_HDMI)
+  91   5          #endif
+  92   5        #else
+                                      if(_GET_INPUT_SOURCE() != _SOURCE_HDMI)
+                #endif
+  95   5                          CPowerLightPowerOff();
+  96   5      
+  97   5                          bShowOSDCurr = (bit)(CScalerGetBit(_OVERLAY_CTRL_6C, _BIT0));
+  98   5                          CScalerSetBit(_OVERLAY_CTRL_6C, ~_BIT0, 0x00);
+  99   5                                              if(!CModeDisplayActiveMode())
+ 100   5                                              {
+ 101   6                                                      CModeResetMode();
+ 102   6                                                      break;
+ 103   6                                              }
+ 104   5                          CScalerSetBit(_OVERLAY_CTRL_6C, ~_BIT0, bShowOSDCurr);
+ 105   5                          
+ 106   5                                              CModeAutoMeasureOn();//自动测量
+ 107   5                              #if(_HDMI_SUPPORT == _ON)
+ 108   5                                              if(CHdmiFormatDetect() && (_GET_INPUT_SOURCE() == _SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI)
+             -)                //Input source is the HDMI format.
+ 109   5                                              {
+ 110   6                              CLR_LIGHTPOWERSTATUS();
+ 111   6                                                      CHdmiAudioFirstTracking();
+ 112   6                                                      CTimerReactiveTimerEvent(SEC(0.1), CHdmiAudioWaitingFlagReadyEven);
+ 113   6                                                      ucHdmiTimerEvent = _HDMI_CHECK_CNT;
+ 114   6                                              }
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 3   
+
+ 115   5                                              else
+ 116   5                                              {                                                       
+ 117   6                                              //      SET_READYFORDISPLAY();
+ 118   6                                              }
+ 119   5      
+ 120   5                              #else
+                                              //      SET_READYFORDISPLAY();
+                                      #endif
+ 123   5                                              SET_READYFORDISPLAY();
+ 124   5                                              CTimerCancelTimerEvent(CModeNoSignalEvent);
+ 125   5                                              CTimerCancelTimerEvent(CModeNoCableEvent);
+ 126   5                                              CTimerCancelTimerEvent(CModeNoSupportEvent);
+ 127   5                                              CTimerCancelTimerEvent(CModePowerSavingEvent);
+ 128   5      
+ 129   5                                              ucCurrState = _ACTIVE_STATE;                            
+ 130   5                                      }
+ 131   4      
+ 132   4                                      SET_READYFORDISPLAY();
+ 133   4                              }
+ 134   3                              else
+ 135   3                              {
+ 136   4                              #if(_HDMI_SUPPORT == _ON)
+ 137   4                                      if (CHdmiFormatDetect() && (_GET_INPUT_SOURCE() == _SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI)
+             -)//for Philips DVD
+ 138   4                                              CTimerDelayXms(50);//for Philips DVD
+ 139   4                  #endif
+ 140   4                              }                                             
+ 141   3                              ucTimerEvent = _INACTIVE_COUNTDOWN_EVENT;
+ 142   3                      }
+ 143   2                      else 
+ 144   2                      {
+ 145   3                      #if(_HDMI_SUPPORT == _ON)
+ 146   3                              if(_GET_INPUT_SOURCE() == _SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI)
+ 147   3                                      CTimerCountDownEventProc(&ucTimerEvent, 40,     CModeSyncTimeoutCountDownEvent);        
+ 148   3                              else
+ 149   3                                      CTimerCountDownEventProc(&ucTimerEvent, 5,      CModeSyncTimeoutCountDownEvent);
+ 150   3                      #else
+                                              CTimerCountDownEventProc(&ucTimerEvent, 5,      CModeSyncTimeoutCountDownEvent);                                        
+                              #endif
+ 153   3                      }
+ 154   2                      break;
+ 155   2      
+ 156   2              case _ACTIVE_STATE:
+ 157   2                      // For VGA, DVI, input*/
+ 158   2                      if (CFrameSyncDetect())
+ 159   2                      {
+ 160   3      #if(_HDMI_HOT_PLUG_OPTION)
+                          bDVIDetect = 0;
+              #endif
+ 163   3                              //fram sync unstable
+ 164   3                              CModeResetMode();
+ 165   3                              break;
+ 166   3                      }
+ 167   2                      else
+ 168   2                      {      
+ 169   3                              #if (_HDMI_HOT_PLUG_OPTION == _ENABLE)                   //SHAN
+                              //eric 20070326 philips DVD player
+                                              //CModeHDMIStableConfirm();
+                                      #endif  
+ 173   3                      if(CModeIsChange())
+ 174   3                              {               
+ 175   4      #if(_HDMI_HOT_PLUG_OPTION)
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 4   
+
+                                          bDVIDetect = 0;
+              #endif
+ 178   4                      if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR)
+ 179   4                         CMuteOn();
+ 180   4                              
+ 181   4                              #if (_HDMI_HOT_PLUG_OPTION == _ENABLE)
+                                                      //CModeHDMIChageDelay();
+                                      #endif          
+ 184   4                                      CModeResetMode();
+ 185   4                                      break;
+ 186   4                  }
+ 187   3                  else//输入稳定                                                                       //SHAN
+ 188   3                              {
+ 189   4      #if(_HDMI_SUPPORT == _ON)
+ 190   4                                      if(_GET_INPUT_SOURCE() == _SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI)
+ 191   4                                      {
+ 192   5                              if(CHdmiFormatDetect())         //Input source is the HDMI format.
+ 193   5                              {
+ 194   6                                      if(!GET_HDMIINPUT()) 
+ 195   6                                                      {       
+ 196   7                                              CModeResetMode();       
+ 197   7                                                              break;
+ 198   7                                      }
+ 199   6                                      else
+ 200   6                                                      {
+ 201   7                                              //if(GET_AUDIOWAITINGTIMEOUT())  // Eric Lee mark for hdmi audio delay output
+ 202   7                                                      CHdmiEnableAudioOutput();
+ 203   7                                      }
+ 204   6                              }
+ 205   5                              else
+ 206   5                                              {
+ 207   6                                      if(GET_HDMIINPUT())
+ 208   6                                                      {
+ 209   7                                              CModeResetMode();                       
+ 210   7                                                              break;
+ 211   7                              }
+ 212   6                              }
+ 213   5                                      }
+ 214   4      #endif
+ 215   4                      CSetModeReady();
+ 216   4                      }
+ 217   3                      }
+ 218   2      
+ 219   2                      break;
+ 220   2                      
+ 221   2              case _NOSUPPORT_STATE:
+ 222   2                      if (GET_READYFORDISPLAY() == _TRUE) 
+ 223   2                      {
+ 224   3                              CLR_READYFORDISPLAY();
+ 225   3                  SET_OSD_READYFORDISPLAY(); 
+ 226   3                              CModeSetFreeRun();
+ 227   3                      //      CAdjustBackgroundColor(0xff, 0x00, 0x00);
+ 228   3                      }
+ 229   2                      if (CModeConnectIsChange() || CModeIsChange())
+ 230   2                              CModeResetMode();
+ 231   2                      break;
+ 232   2                      
+ 233   2              case _NOSIGNAL_STATE: 
+ 234   2              #if (_HDMI_HOT_PLUG_OPTION == _ENABLE)  
+                              if(GET_READYFORDISPLAY())
+                                      if (_GET_INPUT_SOURCE() == _SOURCE_HDMI) 
+                                      {
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 5   
+
+                              CLR_READYFORDISPLAY();
+                                              CModeHdmiHP();
+                                      }
+                      #endif
+ 242   2                      if (!GET_SHOW_NO_SIGNAL()) 
+ 243   2                      {
+ 244   3                              SET_SHOW_NO_SIGNAL();
+ 245   3                              CModeSetFreeRun();
+ 246   3                  SET_OSD_READYFORDISPLAY();
+ 247   3      
+ 248   3              }   
+ 249   2                                                 
+ 250   2                      ucInputSyncType = _NO_SYNC_STATE;
+ 251   2                      CLR_MODESTABLE();
+ 252   2              //      ucCurrState = _SEARCH_STATE;    
+ 253   2                      if ((CModeConnectIsChange() || CSourceHandler()) && !bSourceVideo())
+ 254   2                      {
+ 255   3                              CPowerLedOn();
+ 256   3                              CModeResetMode();
+ 257   3                      }
+ 258   2                      break;
+ 259   2      
+ 260   2              case _SLEEP_STATE:
+ 261   2                      if ((CModeConnectIsChange() || CSourceHandler()) && !bSourceVideo())
+ 262   2                      {
+ 263   3                              CPowerLedOn();
+ 264   3                              CModeResetMode();
+ 265   3                      }
+ 266   2                      break;
+ 267   2      
+ 268   2              default:
+ 269   2                      break;
+ 270   2              }
+ 271   1      }
+ 272          
+ 273          //--------------------------------------------------
+ 274          void CSetModeReady(void)
+ 275          {
+ 276   1              
+ 277   1      #if (_HDMI_SUPPORT == _ON)
+ 278   1              if(CHdmiFormatDetect() && (_GET_INPUT_SOURCE()==_SOURCE_DVI || _GET_INPUT_SOURCE() == _SOURCE_HDMI))
+ 279   1              {                       
+ 280   2                      if (GET_READYFORDISPLAY() == _TRUE) 
+ 281   2                      {
+ 282   3                  CPowerPanelOn();
+ 283   3                      if (GET_LIGHTPOWERSTATUS() == _OFF) 
+ 284   3                      {
+ 285   4                      CPowerLightPowerOn();
+ 286   4                      SET_OSD_READYFORDISPLAY(); 
+ 287   4                      }
+ 288   3                      if(ucHdmiTimerEvent == _HDMI_CHECK_CNT)
+ 289   3                      {
+ 290   4                      //CScalerSetBit(_VDISP_CTRL_28, ~(_BIT5), (0x00));
+ 291   4                              //CLR_READYFORDISPLAY();
+ 292   4                              CLR_SOURCE_AUTOCHANGE();
+ 293   4                              CScalerPageSelect(_PAGE2);
+ 294   4                              CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_VWDSR_41, ~_BIT0, _BIT0);//Enable packet vari
+             -ation Watch Dog
+ 295   4                              CAdjustEnableWatchDog(_WD_DV_TIMEOUT|_WD_FRAMESYNC);                    
+ 296   4                              ucHdmiTimerEvent--;
+ 297   4          
+ 298   4                     // if (GET_FIRST_SHOW_NOTE())
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 6   
+
+ 299   4                     //    ucOsdEventMsg = _DO_SHOW_NOTE;                     
+ 300   4                      }
+ 301   3                      else if(ucHdmiTimerEvent == 0)
+ 302   3                      {
+ 303   4                              CModeHDMITimeoutCountDownEvent();
+ 304   4                              ucHdmiTimerEvent =_INACTIVE_COUNTDOWN_EVENT;
+ 305   4                      }
+ 306   3                      else if(ucHdmiTimerEvent ==_INACTIVE_COUNTDOWN_EVENT)
+ 307   3                      {
+ 308   4                              return;
+ 309   4                      }                                       
+ 310   3                      else
+ 311   3                      {
+ 312   4                              ucHdmiTimerEvent--;
+ 313   4                              CTimerDelayXms(50);
+ 314   4                      }
+ 315   3                  }
+ 316   2              }                       
+ 317   1              else
+ 318   1              {
+ 319   2                      if (GET_READYFORDISPLAY() == _TRUE) 
+ 320   2                      {
+ 321   3                  CScalerSetBit(_VDISP_CTRL_28, ~(_BIT5), 0x00);
+ 322   3                              CLR_READYFORDISPLAY();
+ 323   3                              CLR_SOURCE_AUTOCHANGE();
+ 324   3                      #if(_OD_SUPPORT == _ON)
+                                      CMemorySetODCompress();
+                                      CMemorySetODFIFO();
+                                      CMemorySetODOnOff(_ON);
+                              #endif
+ 329   3                  //080324
+ 330   3                              if((_GET_INPUT_SOURCE() == _SOURCE_VGA))// || (_GET_INPUT_SOURCE() == _SOURCE_YPBPR))
+ 331   3                              {
+ 332   4                              CAdjustAdcClock(stModeUserData.Clock, 1);
+ 333   4                              CAdjustAdcClock(stModeUserData.Clock, 2);
+ 334   4                              }                       
+ 335   3                  CPowerPanelOn();
+ 336   3                              if (GET_LIGHTPOWERSTATUS() == _OFF) 
+ 337   3                              {
+ 338   4                      CPowerLightPowerOn();
+ 339   4                              }
+ 340   3                      
+ 341   3                      #if (_YPBPR_NONE_CHECK_APLL)
+ 342   3                              if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR)
+ 343   3                      CAdjustDisableWatchDog(_WD_ALL);                        // Disable watch dog
+ 344   3                                      //CAdjustEnableWatchDog(_WD_DV_TIMEOUT | _WD_FRAMESYNC);        // not to watch APLL mis-Lock,hill 20070417
+ 345   3                              else
+ 346   3                      #endif          
+ 347   3      
+ 348   3                  if (bCNoCheckSyncMode())
+ 349   3                      CAdjustDisableWatchDog(_WD_ALL);                        // Disable watch dog
+ 350   3                  else if (_GET_INPUT_SOURCE()==_SOURCE_VGA)
+ 351   3                                  CAdjustEnableWatchDog(_WD_DV_TIMEOUT | _WD_FRAMESYNC);      // not to watch APLL mis-Lock,hill 20070417
+ 352   3                  else
+ 353   3                                      CAdjustEnableWatchDog(_WD_ALL);
+ 354   3                              
+ 355   3                  SET_OSD_READYFORDISPLAY(); 
+ 356   3                  //if (GET_FIRST_SHOW_NOTE())
+ 357   3                  //   ucOsdEventMsg = _DO_SHOW_NOTE;
+ 358   3      
+ 359   3                      }
+ 360   2                      if ((stModeUserData.FirstAuto == 0) &&   ///!do auto config when go to vga first time
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 7   
+
+ 361   2                              (_GET_INPUT_SOURCE() == _SOURCE_VGA)) 
+ 362   2                      {
+ 363   3                              
+ 364   3                              stModeUserData.FirstAuto = 1;
+ 365   3                  ucOsdEventMsg = _DO_AUTO_CONFIG;
+ 366   3                      }
+ 367   2              }
+ 368   1      #else
+                      if (GET_READYFORDISPLAY() == _TRUE) 
+                      {
+                      CScalerSetBit(_VDISP_CTRL_28, ~(_BIT5), (0x00));
+                              CLR_READYFORDISPLAY();
+                              CLR_SOURCE_AUTOCHANGE();
+                      #if(_OD_SUPPORT == _ON)
+                              CMemorySetODCompress();
+                              CMemorySetODFIFO();
+                              CMemorySetODOnOff(_ON);
+                      #endif
+                      //080324
+                              if((_GET_INPUT_SOURCE() == _SOURCE_VGA))// || (_GET_INPUT_SOURCE() == _SOURCE_YPBPR))
+                              {
+                                      CAdjustAdcClock(stModeUserData.Clock, 1);
+                                      CAdjustAdcClock(stModeUserData.Clock, 2);
+                              }                       
+                      CPowerPanelOn();
+                              if (GET_LIGHTPOWERSTATUS() == _OFF) 
+                              {
+                          CPowerLightPowerOn();
+                              }
+              
+                      #if (_YPBPR_NONE_CHECK_APLL)
+                              if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR)
+                              CAdjustDisableWatchDog(_WD_ALL);                        // Disable watch dog
+                              //      CAdjustEnableWatchDog(_WD_DV_TIMEOUT | _WD_FRAMESYNC);  // not to watch APLL mis-Lock,hill 20070417
+                              else
+                      #endif          
+              
+                      if (bCNoCheckSyncMode())
+                              CAdjustDisableWatchDog(_WD_ALL);                        // Disable watch dog
+                      else if (_GET_INPUT_SOURCE()==_SOURCE_VGA)
+                                  CAdjustEnableWatchDog(_WD_DV_TIMEOUT | _WD_FRAMESYNC);      // not to watch APLL mis-Lock,hill 20070417
+                      else
+                                      CAdjustEnableWatchDog(_WD_ALL);
+              
+                      SET_OSD_READYFORDISPLAY(); 
+                     // if (GET_FIRST_SHOW_NOTE())
+                     //    ucOsdEventMsg = _DO_SHOW_NOTE;   
+                        
+                      }
+                      if ((stModeUserData.FirstAuto == 0) &&   ///!do auto config when go to vga first time
+                              (_GET_INPUT_SOURCE() == _SOURCE_VGA)) 
+                      {
+                              stModeUserData.FirstAuto = 1;
+                      //ucOsdEventMsg = _DO_AUTO_CONFIG;
+                      }
+              #endif
+ 417   1      }
+ 418          
+ 419          //--------------------------------------------------
+ 420          // Description  : Measure sync type
+ 421          // Input Value  : None
+ 422          // Output Value : Return _TRUE if succeed
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 8   
+
+ 423          //--------------------------------------------------
+ 424          bit CSyncHandler(void)
+ 425          {
+ 426   1              if (ucInputSyncType == _NO_SYNC_STATE)
+ 427   1              {
+ 428   2                      if (!CSourceHandler())   //input Source not exist
+ 429   2                      {
+ 430   3                              ucInputSyncType = _NO_SYNC_STATE;
+ 431   3                              return _FALSE;
+ 432   3                      }
+ 433   2                      
+ 434   2              if (_SOURCE_DVI == _GET_INPUT_SOURCE() || _SOURCE_HDMI == _GET_INPUT_SOURCE())
+ 435   2                         CTimerDelayXms(5);
+ 436   2             // else
+ 437   2                  //CTimerDelayXms(4);
+ 438   2                      
+ 439   2                      ucInputSyncType = CSyncMeasureSyncType();
+ 440   2                      switch (ucInputSyncType)
+ 441   2                      {
+ 442   3                      case _NO_SYNC_STATE:
+ 443   3                              return _FALSE;
+ 444   3                              
+ 445   3                      case _SS_STATE:
+ 446   3                      case _CS_STATE:
+ 447   3                      case _SOG_STATE:
+ 448   3                              return _TRUE;
+ 449   3                              
+ 450   3      #if(_YPBPR_SUPPORT == _ON)
+ 451   3                      case _SOY_STATE:
+ 452   3      #if(_YPBPR_NEW_SYNC_DETECT == _ON)
+                                      CScalerSetBit(_SYNC_INVERT_48, ~_BIT2,0x00);
+              #endif
+ 455   3                              return _TRUE;
+ 456   3      #endif
+ 457   3                              
+ 458   3      #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+ 459   3                      case _DSS_STATE:
+ 460   3        #if (_HDMI_SUPPORT == _ON)
+ 461   3                              if(CHdmiFormatDetect())//Input source is the HDMI format.
+ 462   3                  {
+ 463   4      //                              if(CHdmiFormatDetect())         //Input source is the HDMI format.
+ 464   4      //                {
+ 465   4                          if (!GET_HDMIINPUT())//_GET_INPUT_SOURCE() != _SOURCE_HDMI)
+ 466   4                          {
+ 467   5                             // _SET_INPUT_SOURCE(_SOURCE_HDMI);
+ 468   5                              CModeResetMode();
+ 469   5                          }
+ 470   4      //                }
+ 471   4                      else
+ 472   4                          CLR_HDMIINPUT();
+ 473   4                                      //      _SET_INPUT_SOURCE(_SOURCE_DVI);
+ 474   4                   }
+ 475   3        #endif
+ 476   3                               return _TRUE;
+ 477   3      #endif
+ 478   3                                      
+ 479   3                      default:
+ 480   3                              ucInputSyncType = _NO_SYNC_STATE;
+ 481   3                              return _FALSE;
+ 482   3                      }
+ 483   2              }
+ 484   1              else
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 9   
+
+ 485   1              {
+ 486   2                      switch (_GET_INPUT_SOURCE())
+ 487   2                      {
+ 488   3      #if(_YPBPR_SUPPORT == _ON)
+ 489   3                      case _SOURCE_YPBPR:
+ 490   3      #endif
+ 491   3                      case _SOURCE_VGA:
+ 492   3                              CScalerSetBit(_SYNC_CTRL_49, ~(_BIT1 | _BIT0), _BIT1);
+ 493   3                              break;
+ 494   3                              
+ 495   3      #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+ 496   3                      case _SOURCE_DVI:
+ 497   3              case _SOURCE_HDMI:
+ 498   3                              CScalerSetBit(_SYNC_CTRL_49, ~(_BIT1 | _BIT0), 0x00);
+ 499   3                              break;
+ 500   3      #endif
+ 501   3                      }
+ 502   2                      return _TRUE;
+ 503   2          }
+ 504   1      }
+ 505          
+ 506          /**
+ 507          * CSyncMeasureSyncType
+ 508          * Measure sync type
+ 509          * called only by CSyncHandler
+ 510          * identify sync type according to the input source
+ 511          * @param <none>
+ 512          * @return {sync type we measured}
+ 513          *
+ 514          */
+ 515          
+ 516          BYTE CSyncMeasureSyncType(void)
+ 517          {
+ 518   1              BYTE synctypetemp;
+ 519   1              
+ 520   1              switch (CGetSourcePortType(_GET_INPUT_SOURCE()))
+ 521   1              {
+ 522   2      #if(_YPBPR_SUPPORT == _ON)
+ 523   2              case _YPBPR_A0_PORT:
+ 524   2      #endif
+ 525   2              case _DSUB_A0_PORT:
+ 526   2              //      if(CGetSourcePortType(_GET_INPUT_SOURCE()) == _DSUB_A0_PORT)
+ 527   2                              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), 0x00);//SOY0 , 1st HS/VS                                               
+ 528   2              //      else
+ 529   2              //              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), (_BIT3 | _BIT2));//SOY1 ,2nd HS/VS     
+ 530   2                      
+ 531   2                      //HS_RAW/SOY,source selection
+ 532   2                      CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, ((BYTE)bHsyncSelection << 4));
+ 533   2                      synctypetemp    = CSyncSearchSyncTypeVGA();
+ 534   2                      break;
+ 535   2                      
+ 536   2      #if(_YPBPR_SUPPORT == _ON)
+ 537   2              case _YPBPR_A1_PORT:
+ 538   2      #endif
+ 539   2              case _DSUB_A1_PORT:
+ 540   2              //      if(CGetSourcePortType(_GET_INPUT_SOURCE()) == _DSUB_A0_PORT)
+ 541   2              //              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), 0x00);//SOY0 , 1st HS/VS                                               
+ 542   2              //      else
+ 543   2                              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), (_BIT3 | _BIT2));//SOY1 ,2nd HS/VS     
+ 544   2                      
+ 545   2                      //HS_RAW/SOY,source selection
+ 546   2                      CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, ((BYTE)bHsyncSelection << 4));
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 10  
+
+ 547   2                      synctypetemp    = CSyncSearchSyncTypeVGA();
+ 548   2                      break;
+ 549   2                      
+ 550   2      #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+ 551   2              case _DVI_PORT:
+ 552   2              case _HDMI_PORT:
+ 553   2          case _DVI_D0_PORT:
+ 554   2          case _DVI_D1_PORT:
+ 555   2          case _HDMI_D0_PORT:
+ 556   2          case _HDMI_D1_PORT:
+ 557   2                      synctypetemp = CSyncSearchSyncTypeDVI();
+ 558   2                      break;
+ 559   2                             /*
+ 560   2              case _DVI_I_A0_PORT:
+ 561   2                      synctypetemp = CSyncSearchSyncTypeDVI();
+ 562   2                      if (synctypetemp == _NO_SYNC_STATE)
+ 563   2                      {
+ 564   2                              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), 0x00);
+ 565   2                              CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, ((BYTE)bHsyncSelection << 4));
+ 566   2                              synctypetemp = CSyncSearchSyncTypeVGA();
+ 567   2                      }
+ 568   2                      break;
+ 569   2                            */
+ 570   2      #endif//(_TMDS_SUPPORT == _ON)
+ 571   2                      
+ 572   2              default:
+ 573   2                      break;
+ 574   2                      
+ 575   2              }
+ 576   1              
+ 577   1      #if(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+ 578   1              if (1)
+ 579   1      #endif
+ 580   1                      
+ 581   1      #if(_HSYNC_TYPE_DETECTION == _NORMAL_RUN)
+                      if (synctypetemp != _SS_STATE)
+              #endif
+ 584   1                      {
+ 585   2                              CAdjustSyncProcessorMeasureStart();
+ 586   2                              
+ 587   2                              if (CTimerPollingEventProc(60, CMiscModeMeasurePollingEvent))
+ 588   2                              {
+ 589   3                                      if (CModeMeasureData())
+ 590   3                                              CSyncModifyPolarityVGA();
+ 591   3                                      else
+ 592   3                                              synctypetemp = _NO_SYNC_STATE;
+ 593   3                              }
+ 594   2                              else
+ 595   2                                      synctypetemp = _NO_SYNC_STATE;
+ 596   2                      }
+ 597   1                      
+ 598   1                      return synctypetemp;
+ 599   1      }
+ 600          
+ 601          /**
+ 602          * CSyncSearchSyncTypeVGA
+ 603          * Search VGA sync type
+ 604          * if the same type is searched for 3 times return sync type
+ 605          * @param <none>
+ 606          * @return {sync type}
+ 607          *
+ 608          */
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 11  
+
+ 609          //--------------------------------------------------
+ 610          // Description  : Search VGA sync type
+ 611          // Input Value  : None
+ 612          // Output Value : Return sync type
+ 613          //--------------------------------------------------
+ 614          BYTE CSyncSearchSyncTypeVGA(void)
+ 615          {
+ 616   1      #define _SYNCTYPE_CONFIRM_TIMES   3
+ 617   1              
+ 618   1              BYTE synctypeprev, synctypecurr, cnt;
+ 619   1              
+ 620   1              cnt = _SYNCTYPE_CONFIRM_TIMES;
+ 621   1              
+ 622   1              do
+ 623   1              {
+ 624   2      #if(_HSYNC_TYPE_DETECTION == _NORMAL_RUN)
+                              synctypecurr = CSyncGetSyncTypeStepVGA();
+              #elif(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+ 627   2              synctypecurr = CSyncGetSyncTypeAutoRun();
+ 628   2      #endif
+ 629   2                      
+ 630   2                      if (cnt == _SYNCTYPE_CONFIRM_TIMES)
+ 631   2                      {
+ 632   3                              synctypeprev = synctypecurr;
+ 633   3                              continue;
+ 634   3                      }
+ 635   2                      
+ 636   2                      if (synctypecurr != synctypeprev)
+ 637   2                      {
+ 638   3                              return _NO_SYNC_STATE;
+ 639   3                      }
+ 640   2                      
+ 641   2              }
+ 642   1              while (--cnt);
+ 643   1              
+ 644   1              return synctypecurr;
+ 645   1              
+ 646   1      #undef _SYNCTYPE_CONFIRM_TIMES
+ 647   1      }
+ 648          
+ 649          #if(_HSYNC_TYPE_DETECTION == _NORMAL_RUN)
+              /**
+              * CSyncGetSyncTypeStepVGA
+              * Get VGA sync type according to sync detection by detecting registers
+              * @param <none>
+              * @return {sync type}
+              *
+              */
+              BYTE CSyncGetSyncTypeStepVGA(void)
+              {
+                  BYTE flag, cnt = 0;
+                      
+                  CScalerPageSelect(_PAGE0);
+                  CScalerSetByte(_P0_ADC_POWER_AD, 0x18);//DCR  enable,1M
+                      
+                  CScalerSetByte(_VGIP_ODD_CTRL_13, 0x00);
+                  CScalerSetByte(_YUV2RGB_CTRL_9C, 0x00);//disable YUV->RGB
+                  CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT7 | _BIT3), 0x00);
+                  CScalerSetBit(_SCALE_CTRL_32, ~_BIT7, 0x00); //disable video compensation
+                  CScalerSetBit(_SYNC_CTRL_49, ~(_BIT2 | _BIT1 | _BIT0), _BIT2 | _BIT1); // SeHS/DeHS ,ADC_HS/ADC/VS
+                  CScalerSetBit(_SYNC_INVERT_48, ~(_BIT4 | _BIT2), (_BIT4 | _BIT2));// HS_OUT ,clamp output enable
+                      
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 12  
+
+                  if((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4)) //V304 modify
+                  {
+                      CScalerPageSelect(_PAGE0);
+                      CScalerSetByte(_P0_ADC_TEST_CTRL_AF, 0x04);
+                  }
+                      
+                  CScalerSetBit(_SYNC_SELECT_47, ~_BIT5, _BIT5);  //Enable De-composite circuit
+                      
+                      // Vsync counter level 384 crystal clocks
+                  CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~(_BIT2 | _BIT1 | _BIT0), 0x03);//768Hsync
+                  CScalerSetByte(_VSYNC_COUNTER_LEVEL_LSB_4D, 0x00);
+                      
+                  do
+                  {
+                      CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, 0x00);
+                      CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, _BIT0);//Measure start
+                              
+                              
+                      if(!CTimerPollingEventProc(20, CMiscStableFlagPollingEvent))
+                      {
+                                      if((bit)CScalerGetBit(_HSYNC_TYPE_DETECTION_FLAG_4E, _BIT7))//HS_Overflow
+                                              return _NO_SYNC_STATE;  //No signal
+                                      else
+                                              return _NO_SYNC_STATE;  //Not support
+                      }
+                              
+                      CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT1, _BIT1);//Pop up stable value
+                              
+                      if(!(bit)CScalerGetBit(_STABLE_MEASURE_4F, _BIT6))//Stable polarity
+                      {
+                                      CScalerSetBit(_SYNC_INVERT_48, ~_BIT3, CScalerGetBit(_SYNC_INVERT_48, _BIT3) ^ _BIT3);
+                                      cnt++;
+                      }
+                      else
+                                      break;
+                              
+                              if(cnt >= 2)
+                                      return _NO_SYNC_STATE;
+                      }
+                      while(_TRUE);
+                      
+                      CScalerSetByte(_HSYNC_TYPE_DETECTION_FLAG_4E, 0xff);
+                      CTimerDelayXms(40);
+                      flag = CScalerGetBit(_HSYNC_TYPE_DETECTION_FLAG_4E, 0xff);
+                      
+                      if((bit)(flag & _BIT6) || (bit)(flag & _BIT5) || (bit)(flag & _BIT3))// 1.Stable period chang 2.Stable po
+             -larity chang 3.window unlock
+                              return _NO_SYNC_STATE;
+                      else if((bit)(flag & _BIT1))  // Composite-Sync
+                      {
+                              CScalerSetBit(_SYNC_CTRL_49, ~(_BIT6 | _BIT5 | _BIT2), (_BIT6 | _BIT5 | _BIT2));// 1.DeHS 2.DeVS3..
+                              if((bit)(flag & _BIT0))   // Not SOY signal
+                              {
+                                      CScalerSetBit(_SYNC_INVERT_48, ~(_BIT6 | _BIT1), (_BIT6 | _BIT1));
+                                      if((bit)(flag & _BIT2))
+                                              return _CS_STATE;  //CS with Equalizer
+                                      else
+                                              return _CS_STATE;  //OR-Type & XOR-Type CS
+                              }
+                              else
+                              {
+                                      CScalerSetBit(_SYNC_INVERT_48, ~(_BIT6 | _BIT1), 0x00);
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 13  
+
+                                      if((bit)(flag & _BIT2))
+                                              return _SOY_STATE;  //YPbPr
+                                      else
+              #if(_YPBPR_SUPPORT == _ON)
+                              if((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+                                  return _SOY_STATE;
+                              else
+                                                      return _CS_STATE;
+              #else
+                              return _CS_STATE;
+              #endif
+                              }
+                      }
+                      else                    // Check if Hsync only
+                      {
+                              CScalerSetBit(_SYNC_CTRL_49, ~(_BIT6 | _BIT5 | _BIT2), _BIT2);
+                              CScalerSetBit(_SYNC_SELECT_47, ~_BIT5, 0x00);  //Disable De-composite circuit
+                              CAdjustSyncProcessorMeasureStart();
+                              if(CTimerPollingEventProc(60, CMiscModeMeasurePollingEvent))
+                              {
+                                      if(CModeMeasureData())
+                                      {
+                                              CSyncModifyPolarityVGA();
+                                              return _SS_STATE;
+                                      }
+                                      else
+                                              return _NO_SYNC_STATE;
+                              }
+                              else
+                                      return _NO_SYNC_STATE;
+                      }
+              }
+              #endif  // End of #if(_HSYNC_TYPE_DETECTION == _NORMAL_RUN)
+ 765          
+ 766          /**
+ 767          * CSyncModifyPolarityVGA
+ 768          * Modify VGA sync polarity
+ 769          * @param <none>
+ 770          * @return {none}
+ 771          *
+ 772          */
+ 773          //--------------------------------------------------
+ 774          // Description  : Modify VGA sync polarity
+ 775          // Input Value  : None
+ 776          // Output Value : None
+ 777          //--------------------------------------------------
+ 778          void CSyncModifyPolarityVGA(void)
+ 779          {
+ 780   1              BYTE polarity;
+ 781   1              
+ 782   1              polarity = CScalerGetBit(_VGIP_SIGINV_11, 0xff);
+ 783   1              polarity &= ~(_BIT3 | _BIT2);
+ 784   1              
+ 785   1              if(!(bit)(stModeInfo.Polarity & _BIT0))
+ 786   1                      polarity |= _BIT2;
+ 787   1              
+ 788   1              if(!(bit)(stModeInfo.Polarity & _BIT1))
+ 789   1                      polarity |= _BIT3;
+ 790   1              
+ 791   1              CScalerSetByte(_VGIP_SIGINV_11, polarity);
+ 792   1      }
+ 793          
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 14  
+
+ 794          /**
+ 795          * CSyncSearchSyncTypeDVI
+ 796          * Search DVI sync type
+ 797          * called only by CSyncMeasureSyncType
+ 798          * if the same type is searched for 3 times return sync type
+ 799          * @param <none>
+ 800          * @return {sync type}
+ 801          *
+ 802          */
+ 803          //--------------------------------------------------
+ 804          // Description  : Search DVI sync type
+ 805          // Input Value  : None
+ 806          // Output Value : Return sync type
+ 807          //--------------------------------------------------
+ 808          #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+ 809          BYTE CSyncSearchSyncTypeDVI(void)
+ 810          {
+ 811   1              BYTE synctypetemp = _DSS_STATE;
+ 812   1              //initial DVI register setting add by frank
+ 813   1              CScalerSetByte(_VGIP_ODD_CTRL_13, 0x00);
+ 814   1      
+ 815   1      #if(_HDMI_SUPPORT == _ON)       
+ 816   1              if(!CHdmiFormatDetect())
+ 817   1      #endif
+ 818   1                      CScalerSetByte(_YUV2RGB_CTRL_9C, 0x00);
+ 819   1              
+ 820   1              CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT7 | _BIT3), 0x00);
+ 821   1              CScalerSetBit(_SCALE_CTRL_32, ~_BIT7, 0x00);
+ 822   1              CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~_BIT3, 0x00);
+ 823   1              
+ 824   1              CPowerADCAPLLOff();
+ 825   1              
+ 826   1              CScalerPageSelect(_PAGE2);
+ 827   1              if(!CSourceScanInputPortDVI((bit)CScalerGetBit(_P2_POWER_ON_OFF_CTRL_A7, _BIT7)))
+ 828   1                      return _NO_SYNC_STATE;
+ 829   1              
+ 830   1      #if(((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON)) && (_DVI_LONG_CABLE_SUPPORT == _ON))
+                  if(CAdjustTMDSEqualizer() == _FALSE)
+                      return _NO_SYNC_STATE;
+              #endif
+ 834   1              
+ 835   1              CPowerTMDSOn(); // Measure HS/VS source select as TMDS
+ 836   1              
+ 837   1              return synctypetemp;
+ 838   1      }
+ 839          #endif  // End of #if(_TMDS_SUPPORT == _ON)
+ 840          
+ 841          
+ 842          
+ 843          #if(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+ 844          /**
+ 845          * CSyncGetSyncTypeAutoRun
+ 846          * Get VGA sync type by Hsync Type Detection Auto Run
+ 847          * @param <none>
+ 848          * @return {sync type}
+ 849          *
+ 850          */
+ 851          BYTE CSyncGetSyncTypeAutoRun(void)
+ 852          {
+ 853   1              BYTE synctemp;
+ 854   1              
+ 855   1          CScalerPageSelect(_PAGE0);
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 15  
+
+ 856   1          CScalerSetBit(_P0_ADC_POWER_C6, ~(_BIT5 | _BIT4 | _BIT3), (_BIT5 | _BIT4 | _BIT3));//ADC RGB power
+ 857   1          CScalerSetBit(_IPH_ACT_WID_H_16, ~_BIT7, 0x00);
+ 858   1          CScalerSetBit(_SCALE_CTRL_32, ~_BIT7, 0x00); //video mode compensation disable
+ 859   1          CScalerSetBit(_SYNC_CTRL_49, ~(_BIT2 | _BIT1 | _BIT0), _BIT2 | _BIT1);// ADC_HS/ADC_VS ,SeHS/DeHS
+ 860   1              CScalerSetByte(_P0_ADC_CLAMP_CTRL1_D5, 0x00);//clamp to black_Low
+ 861   1          if((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT3)) // SOG1/SOY1
+ 862   1              CScalerSetBit(_P0_ADC_SOG_CTRL_D6, ~(_BIT1 | _BIT0), _SOY_RESISTER);// R=500K,10n
+ 863   1          else // SOG0/SOY0
+ 864   1              CScalerSetBit(_P0_ADC_SOG_CTRL_D6, ~(_BIT3 | _BIT2), (_SOY_RESISTER << 2));// R=500K,10n                
+ 865   1              
+ 866   1              CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, 0x00);//Measure- Clear
+ 867   1              CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, _BIT0);//Measure- Start
+ 868   1              
+ 869   1              CTimerDelayXms(5);
+ 870   1              
+ 871   1              if((bit)CScalerGetBit(_HSYNC_TYPE_DETECTION_FLAG_4E, _BIT7))
+ 872   1          {// Hsync overflow
+ 873   2                      return _NO_SYNC_STATE;
+ 874   2          }
+ 875   1              //eric 20070523 VGA long time wake up 
+ 876   1              CTimerDelayXms(60);
+ 877   1          if(!((bit)CScalerGetBit(_STABLE_MEASURE_4F, _BIT7)))//both polarity and period are stable
+ 878   1              return _NO_SYNC_STATE;
+ 879   1              CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT1, _BIT1);//Pop up result
+ 880   1              
+ 881   1          // Get stable period
+ 882   1              CScalerRead(_STABLE_PERIOD_H_50, 2, pData, _AUTOINC);
+ 883   1              ((WORD *)pData)[1] = ((pData[0] & 0x07) << 8) | pData[1];
+ 884   1              
+ 885   1              if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 886   1          {
+ 887   2                      CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~(_BIT2 | _BIT1 | _BIT0), (BYTE)(((WORD *)pData)[1] >> 10) & 
+             -0x07);
+ 888   2                      CScalerSetByte(_VSYNC_COUNTER_LEVEL_LSB_4D, (BYTE)(((WORD *)pData)[1] >> 2));
+ 889   2              }
+ 890   1              else
+ 891   1          {
+ 892   2                      if(((WORD *)pData)[1]<=0x500)   
+ 893   2              {
+ 894   3                              if((((WORD *)pData)[1]<=0x2D4)&&(((WORD *)pData)[1]>=0x2C9))
+ 895   3                              {
+ 896   4                                      //720P50
+ 897   4                                      CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~(_BIT2 | _BIT1 | _BIT0), (BYTE)(((WORD *)pData)[1] >> 8) &
+             - 0x07);
+ 898   4                                      CScalerSetByte(_VSYNC_COUNTER_LEVEL_LSB_4D, (BYTE)(((WORD *)pData)[1] ));
+ 899   4                              }
+ 900   3                              else
+ 901   3                              {
+ 902   4                                      //480p (_STABLE_PERIOD=0x6B3)
+ 903   4                                      CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~(_BIT2 | _BIT1 | _BIT0), (BYTE)(((WORD *)pData)[1] >> 10) 
+             -& 0x07);
+ 904   4                                      CScalerSetByte(_VSYNC_COUNTER_LEVEL_LSB_4D, (BYTE)(((WORD *)pData)[1] >> 2));                           
+ 905   4                              }
+ 906   3                              
+ 907   3                              
+ 908   3                      }
+ 909   2                      else
+ 910   2              {
+ 911   3                              //480i (_STABLE_PERIOD=0x359)
+ 912   3                              CScalerSetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, ~(_BIT2 | _BIT1 | _BIT0), (BYTE)(((WORD *)pData)[1] >> 9) & 
+             -0x07);
+ 913   3                              CScalerSetByte(_VSYNC_COUNTER_LEVEL_LSB_4D, (BYTE)(((WORD *)pData)[1] >> 1));
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 16  
+
+ 914   3                      }               
+ 915   2              }       
+ 916   1              CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, 0x00);//stable measure stop
+ 917   1              
+ 918   1              CScalerSetBit(_SYNC_SELECT_47, ~_BIT6, 0x00);
+ 919   1              CScalerSetBit(_SYNC_SELECT_47, ~_BIT6, _BIT6);  //Enable hsync type detection auto run
+ 920   1              
+ 921   1              if(CTimerPollingEventProc(90, CMiscHsyncTypeAutoRunFlagPollingEvent)) //auto run ready
+ 922   1              {
+ 923   2                      synctemp = (CScalerGetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, 0xff) & 0x70) >> 4;//Measur result
+ 924   2                      ucStablePol = ~(CScalerGetBit(_STABLE_PERIOD_H_50, _BIT6) >> 6); //Get Hsync Polarity
+ 925   2      #if(_YPBPR_AUTO_SOY == _ENABLE)
+                              if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR)
+                      {
+                                      if((synctemp == 0)||(synctemp == 1))
+                          {   // No-signal or Not-support                     
+                                              SyncLevelOffset++;
+                                              CYPbPrAutoSOY();                // Adjust SOG sync level
+                                      }
+                              }
+              #endif
+ 935   2                      switch(synctemp)
+ 936   2                      {//eric 20070530
+ 937   3                      case _NO_SIGNAL:                // No Signal
+ 938   3                      case _NOT_SUPPORT:              // Not Support
+ 939   3                      case _HSYNC_WITHOUT_VS: // Hsync only
+ 940   3                              synctemp =_NO_SYNC_STATE;       
+ 941   3                              break;                                          
+ 942   3                              
+ 943   3                      case _YPBPR_SYNC:               // YPbPr-Type CS
+ 944   3                              synctemp =_SOY_STATE;
+ 945   3                              break;  
+ 946   3                              
+ 947   3                      case _SERRATION_CS:             // Serration-Type CS
+ 948   3      #if(_YPBPR_SUPPORT == _ON)
+ 949   3      #if(_HSYNC_TYPE_SELECT == _HSYNC_WITH_SOG_SOY)
+ 950   3                              if((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+ 951   3                              {
+ 952   4                                      if(CModeMeasureReady())
+ 953   4                                      {
+ 954   5                                              if(CModeMeasureData())
+ 955   5                                              {
+ 956   6                                                      if((stModeInfo.IHFreq < Panel[ucPanelSelect]->HSyncMinFreq) || (stModeInfo.IHFreq > Panel[ucPanelSel
+             -ect]->HSyncMaxFreq) || (stModeInfo.IVFreq < Panel[ucPanelSelect]->VSyncMinFreq) || (stModeInfo.IVFreq > Panel[ucPanelSel
+             -ect]->VSyncMaxFreq))
+ 957   6                                                      {
+ 958   7                                                              synctemp=_NO_SYNC_STATE;
+ 959   7                                                              break;                                                                  
+ 960   7                                                      }
+ 961   6                                                      else
+ 962   6                                                      {                                               
+ 963   7                                                              if(CYPbPrSearchMode() != _MODE_NOSUPPORT)
+ 964   7                                                                      synctemp = _SOY_STATE;                                                          
+ 965   7                                                              else
+ 966   7                                                                      synctemp =_CS_STATE;                                                                                            
+ 967   7                                                              break;                  
+ 968   7                                                      }
+ 969   6                                              }
+ 970   5                                      }
+ 971   4                                      else
+ 972   4                                      {
+ 973   5                                              synctemp = _NO_SYNC_STATE;
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 17  
+
+ 974   5                                              break;                                                  
+ 975   5                                      }
+ 976   4                              }
+ 977   3                              else
+ 978   3                              {
+ 979   4                                      synctemp =_CS_STATE;
+ 980   4                                      break;                                          
+ 981   4                              }            
+ 982   3      #else
+                                      if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR)
+                                              synctemp =_SOY_STATE;                                                                                   
+                                      else
+                                              synctemp = _CS_STATE;
+                                      break;                          
+                                      
+              #endif  //End of #if(_HSYNC_TYPE_SELECT == _HSYNC_WITH_SOG_SOY)
+ 990   3      #else
+                                      synctemp =_CS_STATE;
+                                      break;                  
+              #endif
+ 994   3                              
+ 995   3                      case _XOR_OR_TYPE_CS_WITH_EQR:          // CS with Equalizer
+ 996   3                      case _XOR_OR_TYPE_CS_WITHOUT_EQR:               // OR-Type & XOR-Type CS
+ 997   3                              synctemp =_CS_STATE;
+ 998   3                              break;                          
+ 999   3                              
+1000   3                      case _SEPARATE_HSYNC:           // Separate Sync
+1001   3                              synctemp =_SS_STATE;
+1002   3                              break;                          
+1003   3                              
+1004   3                      default:                // Hsync only
+1005   3                              synctemp =_NO_SYNC_STATE;                               
+1006   3                      }
+1007   2                      
+1008   2              }
+1009   1              else
+1010   1                      synctemp =_NO_SYNC_STATE;       
+1011   1              
+1012   1      #if(_HSYNC_TYPE_SELECT != _HSYNC_ONLY)
+1013   1              if((synctemp != _NO_SYNC_STATE) && ((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4)))
+1014   1              {
+1015   2                      CScalerRead(_STABLE_HIGH_PERIOD_H_4A, 2, pData, _AUTOINC);
+1016   2                      stModeInfo.IHSyncPulseCount = ((pData[0] & 0x07) << 8) | pData[1];
+1017   2                      
+1018   2                      CScalerRead(_STABLE_PERIOD_H_50, 2, pData, _AUTOINC);
+1019   2                      stModeInfo.IHCount = ((pData[0] & 0x07) << 8) | pData[1];
+1020   2                      
+1021   2                      if(((stModeInfo.IHSyncPulseCount * 7 / stModeInfo.IHCount) != 0) || (stModeInfo.IHSyncPulseCount < 4))
+1022   2                              synctemp = _NO_SYNC_STATE;
+1023   2          }
+1024   1      #endif  // End of #if(_HSYNC_TYPE_SELECT != _HSYNC_ONLY)
+1025   1              
+1026   1              return synctemp;        
+1027   1              
+1028   1      }
+1029          #endif  // End of #if(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+1030          
+1031          
+1032          #if(_YPBPR_AUTO_SOY == _ENABLE)
+              void CYPbPrAutoSOY(void)
+              {
+                      if((SOGSyncLevel - SyncLevelOffset) < MinSOGSyncLevel)
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 18  
+
+                              SyncLevelOffset = 0;
+                      CScalerPageSelect(_PAGE0); //_P0_SOG0_CTRL_AB
+                      
+                      //eric 20070530
+                  if(CGetSourcePortType(_GET_INPUT_SOURCE()) == _YPBPR_A0_PORT)       
+                      CScalerSetByte(_P0_ADC_SOG0_CTRL_D2,SOGSyncLevel - SyncLevelOffset);
+                  else
+                  {
+                      CScalerPageSelect(_PAGEB);
+                      CScalerSetByte(_PB_SOYCH0_CFG3_C3,SOGSyncLevel - SyncLevelOffset);
+                  }
+              }
+              #endif
+1049          
+1050          
+1051          #if (_HDMI_HOT_PLUG_OPTION == _ENABLE)
+              /*
+              //eric 20070326 philips DVD
+              void CModeHDMIStableConfirm(void)
+              {
+                      if((_GET_INPUT_SOURCE() == _SOURCE_HDMI || _GET_INPUT_SOURCE() == _SOURCE_DVI)||(CHdmiFormatDetect()))
+                      {
+                              if(bHDMIFrameOk==_FALSE)
+                                      ucHDMIFrameOkCnt ++;
+                              
+                              if(ucHDMIFrameOkCnt>=7)//_HDMI_OK_CNT)
+                              {
+                                      bHDMIFrameOk=_TRUE;
+                                      ucHDMIChangeCnt=0;
+                                      ucHDMIFrameOkCnt=0;
+                              }       
+                      }       
+              
+              }*/
+                  
+              void CModeHDMIChageDelay(void)
+              {
+                      if((_GET_INPUT_SOURCE() == _SOURCE_HDMI || _GET_INPUT_SOURCE() == _SOURCE_DVI)||(CHdmiFormatDetect()))
+                      {
+                              //eric 20070326 philips DVD                                             
+                              ucHDMIChangeCnt++;
+                              bHDMIFrameOk=_FALSE;
+                      
+                              if(ucHDMIChangeCnt>=10)//_HDMI_CHANGE_CNT)
+                              {
+                                      ucHDMIChangeCnt=0;                                                      
+                                      CModeHdmiHP();
+                              }       
+                      }               
+              }       
+              #endif
+1087          
+1088          //--------------------------------------------------
+1089          bit bCNoCheckSyncMode(void)
+1090          {
+1091   1      
+1092   1          if ((_GET_INPUT_SOURCE()==_SOURCE_VGA) && 
+1093   1                                                  (stModeInfo.ModeCurr == (_MODE_1440x900_60HZ_RB) ||
+1094   1                                                   stModeInfo.ModeCurr == (_MODE_1440x900_60HZ)    ||
+1095   1                                                   stModeInfo.ModeCurr == (_MODE_1440x900_75HZ)    ||
+1096   1                                                   stModeInfo.ModeCurr == (_MODE_1024x768_72HZ)    ||
+1097   1                                                   stModeInfo.ModeCurr == (_MODE_1024x768_70HZ)))
+C51 COMPILER V9.00   SYNC                                                                  08/25/2023 16:48:51 PAGE 19  
+
+1098   1              return _TRUE;
+1099   1      
+1100   1          if ((_GET_INPUT_SOURCE()==_SOURCE_DVI) && 
+1101   1                                                  (stModeInfo.ModeCurr == (_MODE_1440x900_60HZ_RB) ||
+1102   1                                                   stModeInfo.ModeCurr == (_MODE_1440x900_60HZ)))//    ||
+1103   1                                                 //  stModeInfo.ModeCurr == (_MODE_1024x768_72HZ)    ||
+1104   1                                                   //stModeInfo.ModeCurr == (_MODE_1024x768_70HZ)))
+1105   1              return _TRUE;
+1106   1      
+1107   1      
+1108   1      
+1109   1          return _FALSE;
+1110   1      }
+1111          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1933    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       5
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      3    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

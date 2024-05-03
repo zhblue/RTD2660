@@ -1,0 +1,341 @@
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE JS_6AM
+OBJECT MODULE PLACED IN .\Output\JS_6AM.obj
+COMPILER INVOKED BY: C:\Program Files (x86)\Keil\C51\BIN\C51.EXE TV\JS_6AM.C LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECT
+                    -EXTEND PRINT(.\Output\JS_6AM.lst) OBJECT(.\Output\JS_6AM.obj)
+
+line level    source
+
+   1          #include "Core\Header\Include.h"
+   2          
+   3          #if(_TV_CHIP == _TV_JS_6AM)
+              
+              
+              
+              
+              
+               
+              //==========================================================================
+              //                            gmi_CI2CWriteIfPllDM
+              //==========================================================================
+              void gmi_CI2CWriteIfPllDM(BYTE ucTvType, const bit bTunerMute, const BYTE ucAFTMode)
+              {
+                  if (ucTvType && bTunerMute && ucAFTMode);
+              }
+              
+              //==========================================================================
+              //                         gmi_CSetTuner
+              //==========================================================================
+              void gmi_CSetTuner(BYTE ucTunerAddress, WORD Freq)
+              {          
+                 pData[0] = 8;
+                 pData[1] = ucTunerAddress;
+                 ((WORD *)pData)[1] = Freq;
+              
+                 pData[4] = 0xc8; 
+                
+                 if(Freq < _VHF_LOW_BAND)  
+                    pData[5]=0x01;   // VHFLOW   
+                 else if(Freq < _VHF_HIGH_BAND)
+                    pData[5]=0x02;  // VHFHIGH 
+                 else 
+                    pData[5]=0x04;  //Band select//UHF 
+                 pData[6]=0xd8;
+                 pData[7]=0x60;
+              
+                 gmi_CI2CWriteTuner(pData);
+              }
+              
+              //==========================================================================
+              //                         CTvAutoSearch
+              //==========================================================================
+              void CTvAutoSearch(void) small
+              {
+                  BYTE ucSound = 0;
+                  WORD iFreq   = 0;
+                  bit bTVType  = _GET_TV_TYPE();
+                       
+                  ucTVType = CLoadChannelColorType(stTvInfo.CurChn); 
+                  stTvInfo.CurChn = 0;
+              
+                  gmi_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _TUNNING_MODE);
+                  CTimerDelayXms(8);
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 2   
+
+                  CShowAutoSerachTotal(0);   // Show search tv channel number
+                                  
+                  CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+              
+                      CScalerPageSelect(_PAGE9);              
+                  CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+              
+                  while(1)
+                  {
+                      iFreq = CLockChannel(stTvInfo.CurChn, 1);
+              
+                      if(iFreq == 0xFFFF)
+                      {
+                          break;
+                      }
+                  }  // End while
+              
+                      ucPrevChannel = stTvInfo.CurChn;
+                  // Save current channel
+                  CEepromSaveTvData();
+              
+                  CSetTVChannel(stTvInfo.CurChn);
+              
+              
+              #if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338)
+                  gmi_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE); // set tv system
+              #endif
+              
+                  ucCurrState = _SEARCH_STATE;
+              }
+              
+              //==========================================================================
+              //bSearchAction:   0 --> Search down
+              //                 1 --> Search up
+              //==========================================================================
+              void CManualSearch(const bit bSearchAction, const BYTE ucCurrentChannel) small
+              {
+                  BYTE ucSound           = 0;
+                  WORD iFreq             = 0;
+                 
+                      CScalerPageSelect(_PAGE9);              
+                  CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+              
+              #if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338)
+                  gmi_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _TUNNING_MODE);
+                  CTimerDelayXms(100);
+              #endif
+              
+                  if (bSearchAction)
+                  {
+                     if (ucCurrentChannel < CloadMaxChannelNumber())
+                             iFreq = CLockChannel(ucCurrentChannel+1, 1);
+                     else
+                         iFreq = 0xFFFF;
+                  }
+                      else 
+                  {
+                      if (ucCurrentChannel == 0)  
+                         iFreq = 0xFFFF;
+                     else
+                         iFreq = CLockChannel(ucCurrentChannel-1, 0);
+                  }
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 3   
+
+              
+                  if (iFreq == 0xFFFF)
+                      CSetTVChannel(ucCurrentChannel);
+              
+                  CShowAutoSearchSliderInOSD(CLoadChannelFreq(ucCurrentChannel));                         
+              
+                  CTimerDelayXms(50);
+                  if (gmi_CModeLocked())
+                      CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+              
+              //      CTimerReactiveTimerEvent(SEC(GET_OSDTIMEOUT()), COsdFxExitEvent);
+              
+              #if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338)
+                  gmi_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE);
+              #endif
+                 // CModeResetTVMode();
+                  ucCurrState = _SEARCH_STATE;
+              }
+              
+              //==========================================================================
+              //  bCLockMode --> 1: lock up         0 : lock down
+              //==========================================================================
+              WORD CLockChannel(WORD iStartFreq, const bit bCLockMode) small
+              {
+                  BYTE ucPRG          = 0;
+                  BYTE count          = 0;
+                  BYTE rData          = 0;
+                  WORD iStartFreqBase = iStartFreq;
+                  WORD iMaxChannel    = 0;
+              #if(_OSD_TYPE == _OSD002)
+                  BYTE ucPattCount    = 0;
+              #endif
+                  bit bTVMode         = _GET_TV_TYPE();
+              
+                  iMaxChannel = ((bTVMode == _TV_CATV) ? _CATV_MAX_CHANNEL : _AIR_MAX_CHANNEL) - 1;
+              
+                  while(1)                   
+                  {
+                      gmi_CSetTuner(_ADDR_TUNER, (bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq])
+             -;
+                    
+              #if(_OSD_TYPE == _OSD002)
+                      ucPattCount++;
+                      if (ucPattCount > 50)
+                      {
+                          ucPattCount = 0;
+                          CChangePalette();
+                      } 
+              #endif
+              
+                      if(CKeyStopAutoSearch())
+                         return 0xFFFF;
+                                        
+                      // Show search channel state 
+                      CShowAutoSearchSliderInOSD(((bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq]
+             -)); 
+              
+                      while(1)//(count = 0; count < 5; count++)
+                      {
+                          CTimerDelayXms(100);
+              
+                          if (CDetectTVSignalType())
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 4   
+
+                          {
+                              CSaveChannelData((bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq], 0
+             -x00, iStartFreq);
+                              if (ucPRG == 0)
+                                  stTvInfo.CurChn = iStartFreq;
+              
+                              ucPRG++;
+              
+              #if(_OSD_TYPE == _OSD003)
+                                              if (ucOsdState != _MI_AUTOSEARCH)
+              #endif
+                                                  return iStartFreq;
+              
+                              CShowAutoSerachTotal(ucPRG);  // Show search tv channel number
+                              break;
+                          }
+                          
+                          count++;
+                          if (count >= 5) 
+                          {
+              #if(_OSD_TYPE == _OSD003)
+                                              if (ucOsdState == _MI_AUTOSEARCH)
+              #endif
+                                  CSaveChannelData(((bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFre
+             -q]) | 0x8000, 
+                                                                                                                        
+             -      0x00, iStartFreq);
+                              break;
+                          }
+                      }
+                
+                      if (bCLockMode) // Search up
+                      {
+                          iStartFreq++;
+                          if (iStartFreq > iMaxChannel)
+                              return 0xFFFF;
+                      }
+                      else            // Search down
+                      {
+                          if (iStartFreq == 0) 
+                              return 0xFFFF;
+              
+                          iStartFreq--;
+                      }
+                  }
+                  return 0xFFFF;  //Not Find Channel
+              }
+              
+              //==========================================================================
+              //                        CSetTVChannel
+              //==========================================================================
+              void CSetTVChannel(const BYTE ucCurrentChannel)
+              {  
+                  ucTVType = CLoadChannelColorType(ucCurrentChannel); // set tv system
+                      
+                  gmi_CSetTuner(_ADDR_TUNER, CLoadChannelFreq(ucCurrentChannel));
+                  CTimerDelayXms(20);
+              #if (_TV_AFC)
+                  CurrAFCFreq = CLoadChannelFreq(ucCurrentChannel);
+                  AFCState    = _TV_AFC_START;
+              #endif
+              
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 5   
+
+                  CSetTvColor(ucTVType);
+                  CVideoSoftReset();
+                  ucTVSyncFailCount = 251;
+              }
+              #if (_TV_AFC)
+              //==========================================================================
+              //                        CTVAFC
+              //==========================================================================
+              void CTVAFC(void)
+              {
+                  BYTE rData = 0;
+              
+                  if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_TV ||
+                #if(_OSD_TYPE == _OSD003)
+                      ucOsdState != _MI_MENU_NONE ||
+                #endif 
+                      bTVNoSignal == 1 || !GET_AFC_MODE())
+                     return;
+              
+                  if (_TV_AFC_TIMEOUT == AFCState)
+                  {
+                      gmi_CSetTuner(_ADDR_TUNER, CLoadChannelFreq(stTvInfo.CurChn));
+                      AFCState = _TV_AFC_STOP;
+                  }
+                  else if(_TV_AFC_STOP == AFCState)
+                  {
+                      return;
+                  }
+              
+                  rData = gmi_CReadIfPllDM();
+              
+                  switch((rData >> 1) & 0x0f)
+                  {
+                  case 8:  // > +187.5KHz
+                  case 9:  //   +162.5KHz
+                  case 10: //   +137.5KHz
+                  case 11: //   +112.5KHz
+                  case 12: //   +87.5KHz
+                  case 13: //   +62.5KHz
+                      if (CurrAFCFreq)
+                          CurrAFCFreq--;
+                      gmi_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+                      break;
+              
+                  case 2:  //   -62.5KHz
+                  case 3:  //   -87.5KHz
+                  case 4:  //   -112.5KHz
+                  case 5:  //   -137.5KHz
+                  case 6:  //   -162.5KHz
+                  case 7:  // > -187.5KHz
+                      CurrAFCFreq++;
+                      gmi_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+                      break;
+              
+                  case 0:   // -12.5KHz
+                  case 1:   // -37.5KHz
+                  case 14:  // +37.5KHz
+                  case 15:  // +12.5KHz
+                      return;
+                  }
+              
+                  AFCState++;
+C51 COMPILER V9.00   JS_6AM                                                                08/25/2023 16:47:40 PAGE 6   
+
+              }
+              #endif //_TV_AFC
+              
+              #endif // #if(_TV_CHIP == _TV_JS_6AM)
+ 302          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
